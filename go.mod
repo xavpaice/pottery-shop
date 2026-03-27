@@ -1,6 +1,6 @@
 module pottery-shop
 
-go 1.21
+go 1.26
 
 require (
 	github.com/disintegration/imaging v1.6.2
