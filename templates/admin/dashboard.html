@@ -1,0 +1,59 @@
+{{define "admin_dashboard.html"}}
+{{template "admin_header" .}}
+
+<div class="admin-toolbar">
+    <h1>Products</h1>
+    <a href="/admin/products/new" class="btn btn-primary">+ New Product</a>
+</div>
+
+{{if .Products}}
+<table class="admin-table">
+    <thead>
+        <tr>
+            <th>Image</th>
+            <th>Title</th>
+            <th>Price</th>
+            <th>Status</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Products}}
+        <tr>
+            <td class="table-thumb">
+                {{if .Images}}
+                <img src="/uploads/thumbnails/{{(index .Images 0).ThumbnailFn}}" alt="">
+                {{else}}
+                <span class="no-thumb">—</span>
+                {{end}}
+            </td>
+            <td><a href="/admin/products/{{.ID}}/edit">{{.Title}}</a></td>
+            <td>${{printf "%.2f" .Price}}</td>
+            <td>
+                <form method="POST" action="/admin/products/toggle-sold" class="inline-form">
+                    <input type="hidden" name="id" value="{{.ID}}">
+                    <button type="submit" class="status-badge {{if .IsSold}}sold{{else}}available{{end}}">
+                        {{if .IsSold}}Sold{{else}}Available{{end}}
+                    </button>
+                </form>
+            </td>
+            <td class="actions">
+                <a href="/admin/products/{{.ID}}/edit" class="btn btn-small">Edit</a>
+                <form method="POST" action="/admin/products/delete" class="inline-form"
+                      onsubmit="return confirm('Delete this product?')">
+                    <input type="hidden" name="id" value="{{.ID}}">
+                    <button type="submit" class="btn btn-small btn-danger">Delete</button>
+                </form>
+            </td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+{{else}}
+<div class="empty-state">
+    <p>No products yet. <a href="/admin/products/new">Create your first listing</a>.</p>
+</div>
+{{end}}
+
+{{template "admin_footer" .}}
+{{end}}

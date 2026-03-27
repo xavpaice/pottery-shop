@@ -1,0 +1,26 @@
+{{define "admin_header"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin — Clay.nz</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+<body class="admin-body">
+    <header class="admin-header">
+        <div class="container header-inner">
+            <a href="/admin" class="logo">
+                <span class="logo-icon">⚙️</span>
+                <span class="logo-text">Admin Panel</span>
+            </a>
+            <nav class="main-nav">
+                <a href="/admin">Products</a>
+                <a href="/admin/products/new">+ New Product</a>
+                <a href="/" target="_blank">View Site ↗</a>
+            </nav>
+        </div>
+    </header>
+    <main class="container admin-main">
+{{end}}

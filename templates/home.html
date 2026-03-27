@@ -1,0 +1,35 @@
+{{define "home.html"}}
+{{template "header" .}}
+
+<section class="hero">
+    <h1>Handcrafted Clay &amp; Sculpture</h1>
+    <p>Each piece is unique, shaped by hand, fired with intention.</p>
+</section>
+
+{{if .Products}}
+<div class="product-grid">
+    {{range .Products}}
+    <a href="/product/{{.ID}}" class="product-card">
+        <div class="product-image">
+            {{if .Images}}
+            <img src="/uploads/thumbnails/{{(index .Images 0).ThumbnailFn}}" alt="{{.Title}}" loading="lazy">
+            {{else}}
+            <div class="no-image">🏺</div>
+            {{end}}
+            {{if .IsSold}}<span class="sold-badge">Sold</span>{{end}}
+        </div>
+        <div class="product-info">
+            <h3>{{.Title}}</h3>
+            <p class="price">${{printf "%.2f" .Price}}</p>
+        </div>
+    </a>
+    {{end}}
+</div>
+{{else}}
+<div class="empty-state">
+    <p>No pieces available right now. Check back soon!</p>
+</div>
+{{end}}
+
+{{template "footer" .}}
+{{end}}
