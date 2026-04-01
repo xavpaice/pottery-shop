@@ -3,7 +3,7 @@
 replicaCount: 1
 
 image:
-  repository: clay-nz
+  repository: ghcr.io/xavpaice/pottery-shop
   tag: latest
   pullPolicy: IfNotPresent
 

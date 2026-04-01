@@ -44,7 +44,7 @@ lint: helm-lint
 
 ## docker: build Docker image
 docker:
-	docker build -t clay-nz:latest .
+	docker build -t ghcr.io/xavpaice/pottery-shop:latest .
 
 ## deploy: apply all Kubernetes manifests
 deploy:
