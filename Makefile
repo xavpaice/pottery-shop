@@ -1,4 +1,4 @@
-.PHONY: build test test-verbose clean run docker
+.PHONY: build test test-verbose clean run docker helm-lint lint
 
 BINARY := pottery-server
 GO := go
@@ -34,6 +34,13 @@ run: build
 tidy:
 	$(GO) mod tidy
 	$(GO) mod verify
+
+## helm-lint: lint the Helm chart
+helm-lint:
+	helm lint chart/clay/
+
+## lint: run all linters
+lint: helm-lint
 
 ## docker: build Docker image
 docker:
