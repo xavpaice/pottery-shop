@@ -116,6 +116,33 @@ Key `values.yaml` settings to customise:
 | `secrets.SESSION_SECRET` | placeholder | **Change before deploying** |
 | `ingress.hosts[0].host` | `clay.nz` | Your domain |
 | `persistence.size` | `5Gi` | Storage for SQLite DB + uploads |
+| `imagePullSecrets` | `[]` | Required for private images (see below) |
+
+#### Private image registry
+
+The container image is private (matching the repo visibility). To pull it from your cluster, create an image pull secret:
+
+```bash
+kubectl create secret docker-registry ghcr-creds \
+  -n clay \
+  --docker-server=ghcr.io \
+  --docker-username=xavpaice \
+  --docker-password=<PAT with read:packages scope>
+```
+
+Then set it in your values:
+
+```yaml
+imagePullSecrets:
+  - name: ghcr-creds
+```
+
+Or via the command line:
+
+```bash
+helm install clay ./chart/clay -n clay --create-namespace \
+  --set imagePullSecrets[0].name=ghcr-creds
+```
 
 > **Note:** SQLite doesn't support concurrent writers, so `replicaCount` should stay at `1` with the default `Recreate` strategy. If you need horizontal scaling, swap SQLite for PostgreSQL.
 
