@@ -1,0 +1,83 @@
+# Default values for clay pottery shop
+
+replicaCount: 1
+
+image:
+  repository: clay-nz
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: ""
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+  hosts:
+    - host: clay.nz
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: clay-tls
+      hosts:
+        - clay.nz
+
+config:
+  PORT: "8080"
+  BASE_URL: "https://clay.nz"
+  ADMIN_USER: "admin"
+  DB_PATH: "/data/clay.db"
+  UPLOAD_DIR: "/data/uploads"
+  SMTP_HOST: ""
+  SMTP_PORT: "587"
+  SMTP_FROM: ""
+  ORDER_EMAIL: "xavpaice@gmail.com"
+
+secrets:
+  ADMIN_PASS: "changeme"
+  SESSION_SECRET: "change-this-to-a-random-string"
+  SMTP_USER: ""
+  SMTP_PASS: ""
+
+persistence:
+  enabled: true
+  accessMode: ReadWriteOnce
+  size: 5Gi
+  storageClass: ""
+  existingClaim: ""
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+containerPort: 8080
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: 8080
+  initialDelaySeconds: 2
+  periodSeconds: 10
+
+livenessProbe:
+  httpGet:
+    path: /
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 30
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
