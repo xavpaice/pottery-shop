@@ -62,51 +62,101 @@ All config is via environment variables (or a `.env` file if you use something l
 
 ### Docker
 
+The image is published automatically to GitHub Container Registry on every merge to `main`:
+
+```
+ghcr.io/xavpaice/pottery-shop:latest
+```
+
+Images are also tagged with the git SHA (e.g. `ghcr.io/xavpaice/pottery-shop:sha-abc1234`).
+
 ```bash
-# Build the image
-make docker
+# Pull the latest image
+docker pull ghcr.io/xavpaice/pottery-shop:latest
 
 # Run locally
 docker run -p 8080:8080 \
   -v clay-data:/data \
   -e ADMIN_PASS=changeme \
   -e SESSION_SECRET=$(openssl rand -hex 32) \
-  clay-nz:latest
+  ghcr.io/xavpaice/pottery-shop:latest
+
+# Or build locally
+make docker
 ```
 
 The image is a two-stage build (~30MB) — Alpine with just the binary, templates, and static assets. Data lives at `/data` (SQLite DB + uploaded images).
 
-### Kubernetes
+### Kubernetes (Helm)
 
-Manifests are in `k8s/`. Before deploying:
+A Helm chart is provided in `chart/clay/`. This is the recommended way to deploy.
 
-1. **Build and push** the image to your registry:
-   ```bash
-   docker build -t your-registry/clay-nz:latest .
-   docker push your-registry/clay-nz:latest
-   ```
+```bash
+# Install
+helm install clay ./chart/clay -n clay --create-namespace
 
-2. **Update** `k8s/deployment.yaml` with your image name
+# Install with custom values
+helm install clay ./chart/clay -n clay --create-namespace \
+  --set secrets.ADMIN_PASS=your-secure-password \
+  --set secrets.SESSION_SECRET=$(openssl rand -hex 32) \
+  --set ingress.hosts[0].host=your-domain.com \
+  --set config.BASE_URL=https://your-domain.com
 
-3. **Edit secrets** in `k8s/secret.yaml` — set a real `ADMIN_PASS` and `SESSION_SECRET`
+# Upgrade after changes
+helm upgrade clay ./chart/clay -n clay
+```
 
-4. **Update** `k8s/configmap.yaml` and `k8s/ingress.yaml` with your domain/SMTP settings
+Key `values.yaml` settings to customise:
 
-5. **Apply everything:**
+| Value | Default | Notes |
+|---|---|---|
+| `image.repository` | `ghcr.io/xavpaice/pottery-shop` | Container image |
+| `image.tag` | `latest` | Pin to a SHA tag for production |
+| `secrets.ADMIN_PASS` | `changeme` | **Change before deploying** |
+| `secrets.SESSION_SECRET` | placeholder | **Change before deploying** |
+| `ingress.hosts[0].host` | `clay.nz` | Your domain |
+| `persistence.size` | `5Gi` | Storage for SQLite DB + uploads |
+| `imagePullSecrets` | `[]` | Required for private images (see below) |
+
+#### Private image registry
+
+The container image is private (matching the repo visibility). To pull it from your cluster, create an image pull secret:
+
+```bash
+kubectl create secret docker-registry ghcr-creds \
+  -n clay \
+  --docker-server=ghcr.io \
+  --docker-username=xavpaice \
+  --docker-password=<PAT with read:packages scope>
+```
+
+Then set it in your values:
+
+```yaml
+imagePullSecrets:
+  - name: ghcr-creds
+```
+
+Or via the command line:
+
+```bash
+helm install clay ./chart/clay -n clay --create-namespace \
+  --set imagePullSecrets[0].name=ghcr-creds
+```
+
+> **Note:** SQLite doesn't support concurrent writers, so `replicaCount` should stay at `1` with the default `Recreate` strategy. If you need horizontal scaling, swap SQLite for PostgreSQL.
+
+### Kubernetes (raw manifests)
+
+Raw manifests are also available in `k8s/` if you prefer not to use Helm:
+
+1. **Edit secrets** in `k8s/secret.yaml` — set a real `ADMIN_PASS` and `SESSION_SECRET`
+2. **Update** `k8s/configmap.yaml` and `k8s/ingress.yaml` with your domain/SMTP settings
+3. **Apply:**
    ```bash
    make deploy
    # or: kubectl apply -f k8s/
    ```
-
-What gets created:
-- **Namespace** `clay`
-- **PVC** `clay-data` (5Gi) — holds the SQLite DB and uploaded images
-- **Deployment** — single replica (SQLite is single-writer), `Recreate` strategy
-- **Service** — ClusterIP on port 80 → container 8080
-- **Ingress** — routes `clay.nz` with TLS
-- **ConfigMap + Secret** — all environment config
-
-> **Note:** SQLite doesn't support concurrent writers, so the deployment is capped at 1 replica with a `Recreate` strategy. If you need horizontal scaling later, swap SQLite for PostgreSQL.
 
 ### Bare metal / VPS
 
@@ -144,6 +194,8 @@ make test-coverage  # Generate coverage report (coverage.html)
 make run            # Build + run the server
 make tidy           # go mod tidy + verify
 make clean          # Remove build artifacts
+make helm-lint      # Lint the Helm chart
+make lint           # Run all linters
 ```
 
 ### Running locally
@@ -180,8 +232,11 @@ GitHub Actions runs on every PR and push to `main`:
 - Verifies module dependencies
 - Runs `make test`
 - Runs `make build`
+- Lints the Helm chart (`make helm-lint`)
 
-See `.github/workflows/test.yml` for details.
+On merge to `main`, a separate workflow builds and pushes the Docker image to `ghcr.io/xavpaice/pottery-shop` with `latest` and SHA tags.
+
+See `.github/workflows/test.yml` and `.github/workflows/publish.yml` for details.
 
 ### Adding new features
 
@@ -228,7 +283,12 @@ clay.nz/
 │   ├── deployment.yaml
 │   ├── service.yaml
 │   └── ingress.yaml
-├── .github/workflows/test.yml      # CI pipeline
+├── chart/clay/                      # Helm chart
+│   ├── Chart.yaml
+│   ├── values.yaml
+│   └── templates/                  # K8s resource templates
+├── .github/workflows/test.yml      # CI pipeline (tests + lint)
+├── .github/workflows/publish.yml   # Image publish to ghcr.io
 ├── Dockerfile                      # Multi-stage container build
 ├── .dockerignore
 ├── Makefile                        # Build/test/run/deploy targets
