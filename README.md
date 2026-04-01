@@ -58,21 +58,71 @@ All config is via environment variables (or a `.env` file if you use something l
 | `SMTP_FROM` | (empty) | From address for emails |
 | `ORDER_EMAIL` | `xavpaice@gmail.com` | Where order emails go |
 
-## Production
+## Deployment
+
+### Docker
+
+```bash
+# Build the image
+make docker
+
+# Run locally
+docker run -p 8080:8080 \
+  -v clay-data:/data \
+  -e ADMIN_PASS=changeme \
+  -e SESSION_SECRET=$(openssl rand -hex 32) \
+  clay-nz:latest
+```
+
+The image is a two-stage build (~30MB) — Alpine with just the binary, templates, and static assets. Data lives at `/data` (SQLite DB + uploaded images).
+
+### Kubernetes
+
+Manifests are in `k8s/`. Before deploying:
+
+1. **Build and push** the image to your registry:
+   ```bash
+   docker build -t your-registry/clay-nz:latest .
+   docker push your-registry/clay-nz:latest
+   ```
+
+2. **Update** `k8s/deployment.yaml` with your image name
+
+3. **Edit secrets** in `k8s/secret.yaml` — set a real `ADMIN_PASS` and `SESSION_SECRET`
+
+4. **Update** `k8s/configmap.yaml` and `k8s/ingress.yaml` with your domain/SMTP settings
+
+5. **Apply everything:**
+   ```bash
+   make deploy
+   # or: kubectl apply -f k8s/
+   ```
+
+What gets created:
+- **Namespace** `clay`
+- **PVC** `clay-data` (5Gi) — holds the SQLite DB and uploaded images
+- **Deployment** — single replica (SQLite is single-writer), `Recreate` strategy
+- **Service** — ClusterIP on port 80 → container 8080
+- **Ingress** — routes `clay.nz` with TLS
+- **ConfigMap + Secret** — all environment config
+
+> **Note:** SQLite doesn't support concurrent writers, so the deployment is capped at 1 replica with a `Recreate` strategy. If you need horizontal scaling later, swap SQLite for PostgreSQL.
+
+### Bare metal / VPS
 
 Build a static binary and run behind nginx with Let's Encrypt:
 
 ```bash
-go build -o clay-server ./cmd/server
+make build
 
 # Run
-PORT=8080 BASE_URL=https://clay.nz ./clay-server
+PORT=8080 BASE_URL=https://clay.nz ./pottery-server
 ```
 
 Nginx reverse proxy config:
 ```nginx
 server {
-    server_name yoursite.com;
+    server_name clay.nz;
     location / {
         proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host $host;
@@ -170,8 +220,18 @@ clay.nz/
 │   └── order_confirmed.html        # Order confirmation
 ├── static/css/                     # Stylesheets
 ├── uploads/                        # Image uploads (created at runtime)
+├── k8s/                            # Kubernetes manifests
+│   ├── namespace.yaml
+│   ├── configmap.yaml
+│   ├── secret.yaml
+│   ├── pvc.yaml
+│   ├── deployment.yaml
+│   ├── service.yaml
+│   └── ingress.yaml
 ├── .github/workflows/test.yml      # CI pipeline
-├── Makefile                        # Build/test/run targets
+├── Dockerfile                      # Multi-stage container build
+├── .dockerignore
+├── Makefile                        # Build/test/run/deploy targets
 ├── .env.example                    # Config template
 └── go.mod
 ```

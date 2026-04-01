@@ -1,4 +1,4 @@
-.PHONY: build test test-verbose clean run
+.PHONY: build test test-verbose clean run docker
 
 BINARY := pottery-server
 GO := go
@@ -34,6 +34,14 @@ run: build
 tidy:
 	$(GO) mod tidy
 	$(GO) mod verify
+
+## docker: build Docker image
+docker:
+	docker build -t clay-nz:latest .
+
+## deploy: apply all Kubernetes manifests
+deploy:
+	kubectl apply -f k8s/
 
 ## help: show this help
 help:

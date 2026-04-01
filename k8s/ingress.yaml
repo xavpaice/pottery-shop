@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: clay
+  namespace: clay
+  annotations:
+    # Adjust these for your ingress controller
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+spec:
+  rules:
+    - host: clay.nz
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: clay
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - clay.nz
+      secretName: clay-tls    # Provide via cert-manager or manually

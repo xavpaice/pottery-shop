@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clay-config
+  namespace: clay
+data:
+  PORT: "8080"
+  BASE_URL: "https://clay.nz"
+  ADMIN_USER: "admin"
+  DB_PATH: "/data/clay.db"
+  UPLOAD_DIR: "/data/uploads"
+  SMTP_HOST: ""
+  SMTP_PORT: "587"
+  SMTP_FROM: ""
+  ORDER_EMAIL: "xavpaice@gmail.com"

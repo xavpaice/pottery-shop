@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clay
+  namespace: clay
+  labels:
+    app: clay
+spec:
+  replicas: 1    # SQLite requires single-writer; don't scale beyond 1
+  strategy:
+    type: Recreate  # Avoid two pods accessing the same SQLite DB
+  selector:
+    matchLabels:
+      app: clay
+  template:
+    metadata:
+      labels:
+        app: clay
+    spec:
+      containers:
+        - name: clay
+          image: clay-nz:latest    # Update with your registry image
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: clay-config
+            - secretRef:
+                name: clay-secrets
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 2
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: clay-data
