@@ -50,18 +50,29 @@ docker:
 deploy:
 	kubectl apply -f k8s/
 
+GHCR_USERNAME ?= xavpaice
 IMAGE_REPO := ghcr.io/xavpaice/pottery-shop
 IMAGE_TAG := test-$(shell git rev-parse --short HEAD)
 CLUSTER_NAME := pottery-integration-$(shell date +%s)
 
 ## integration-test: build image, create CMX cluster, install chart, verify, teardown
 integration-test:
-	@command -v replicated >/dev/null 2>&1 || { echo "Error: replicated CLI not installed. See https://docs.replicated.com/reference/replicated-cli-installing"; exit 1; }
+	@for tool in replicated docker helm kubectl jq; do \
+		if ! command -v $$tool >/dev/null 2>&1; then \
+			if [ "$$tool" = "replicated" ]; then \
+				echo "Error: replicated CLI not installed. See https://docs.replicated.com/reference/replicated-cli-installing"; \
+			else \
+				echo "Error: $$tool CLI not installed"; \
+			fi; \
+			exit 1; \
+		fi; \
+	done
 	@test -n "$$REPLICATED_API_TOKEN" || { echo "Error: REPLICATED_API_TOKEN not set"; exit 1; }
 	@test -n "$$GHCR_TOKEN" || { echo "Error: GHCR_TOKEN not set"; exit 1; }
 	@CLUSTER_NAME=$(CLUSTER_NAME) \
 	IMAGE_REPO=$(IMAGE_REPO) \
 	IMAGE_TAG=$(IMAGE_TAG) \
+	GHCR_USERNAME=$(GHCR_USERNAME) \
 	GHCR_TOKEN=$$GHCR_TOKEN \
 	bash -ec ' \
 		cleanup() { \
@@ -92,6 +103,7 @@ integration-test:
 			--ttl 30m; \
 		\
 		CLUSTER_ID=$$(replicated cluster ls --output json | jq -r ".[] | select(.name==\"$$CLUSTER_NAME\") | .id"); \
+		[ -n "$$CLUSTER_ID" ] || { echo "Error: failed to get cluster ID for $$CLUSTER_NAME"; exit 1; }; \
 		echo "--- Cluster ID: $$CLUSTER_ID ---"; \
 		\
 		echo "--- Fetching kubeconfig ---"; \
@@ -111,7 +123,7 @@ integration-test:
 		kubectl create secret docker-registry ghcr-pull-secret \
 			--namespace clay \
 			--docker-server=ghcr.io \
-			--docker-username=xavpaice \
+			--docker-username=$$GHCR_USERNAME \
 			--docker-password=$$GHCR_TOKEN; \
 		helm install clay chart/clay/ \
 			--namespace clay \

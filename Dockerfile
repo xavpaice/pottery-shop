@@ -1,5 +1,5 @@
 # Build stage — use xx for cross-compilation with CGO
-FROM --platform=$BUILDPLATFORM tonistiigi/xx AS xx
+FROM --platform=$BUILDPLATFORM tonistiigi/xx:1.6.1 AS xx
 
 FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS builder
 COPY --from=xx / /
