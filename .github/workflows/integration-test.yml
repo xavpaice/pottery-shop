@@ -55,8 +55,6 @@ jobs:
 
       - name: Install chart on CMX cluster
         run: |
-          export KUBECONFIG=${{ steps.create-cluster.outputs.cluster-kubeconfig-path }}
-
           # Create namespace with Helm ownership labels (chart includes namespace.yaml)
           kubectl create namespace clay --dry-run=client -o yaml | kubectl apply -f -
           kubectl label namespace clay app.kubernetes.io/managed-by=Helm --overwrite
@@ -81,8 +79,6 @@ jobs:
 
       - name: Verify deployment
         run: |
-          export KUBECONFIG=${{ steps.create-cluster.outputs.cluster-kubeconfig-path }}
-
           kubectl get pods -n clay
           kubectl rollout status deployment/clay -n clay --timeout=120s
 
@@ -93,8 +89,6 @@ jobs:
       - name: Collect debug info on failure
         if: failure()
         run: |
-          export KUBECONFIG=${{ steps.create-cluster.outputs.cluster-kubeconfig-path }}
-
           echo "=== Pods ==="
           kubectl get pods -n clay -o wide || true
           echo "=== Events ==="
