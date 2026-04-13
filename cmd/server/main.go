@@ -1,7 +1,7 @@
 package main
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
 	"html/template"
 	"log"
@@ -10,7 +10,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
+	"github.com/pressly/goose/v3"
+
+	migrations "pottery-shop/internal/migrations"
 
 	"pottery-shop/internal/handlers"
 	"pottery-shop/internal/middleware"
@@ -24,7 +28,6 @@ func main() {
 	adminUser := envOr("ADMIN_USER", "admin")
 	adminPass := envOr("ADMIN_PASS", "changeme")
 	sessionSecret := envOr("SESSION_SECRET", "change-this-to-a-random-string-at-least-32-chars")
-	dbPath := envOr("DB_PATH", "pottery.db")
 	uploadDir := envOr("UPLOAD_DIR", "uploads")
 	thumbDir := filepath.Join(uploadDir, "thumbnails")
 
@@ -33,16 +36,30 @@ func main() {
 	os.MkdirAll(thumbDir, 0755)
 
 	// Database
-	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on")
-	if err != nil {
-		log.Fatalf("Failed to open database: %v", err)
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		log.Fatal("DATABASE_URL must be set")
 	}
+
+	pool, err := pgxpool.New(context.Background(), databaseURL)
+	if err != nil {
+		log.Fatalf("Failed to create connection pool: %v", err)
+	}
+	defer pool.Close()
+
+	db := stdlib.OpenDBFromPool(pool)
 	defer db.Close()
 
-	store := models.NewProductStore(db)
-	if err := store.Init(); err != nil {
-		log.Fatalf("Failed to initialise database: %v", err)
+	// Run migrations
+	goose.SetBaseFS(migrations.FS)
+	if err := goose.SetDialect("postgres"); err != nil {
+		log.Fatalf("Failed to set goose dialect: %v", err)
 	}
+	if err := goose.Up(db, "."); err != nil {
+		log.Fatalf("Failed to run migrations: %v", err)
+	}
+
+	store := models.NewProductStore(db)
 
 	// Templates
 	funcMap := template.FuncMap{
@@ -130,7 +147,7 @@ func main() {
 	handler := sessionMgr.Middleware(mux)
 
 	addr := fmt.Sprintf(":%s", port)
-	log.Printf("🏺 Clay.nz starting on %s", addr)
+	log.Printf("Clay.nz starting on %s", addr)
 	log.Printf("   Public:  %s", baseURL)
 	log.Printf("   Admin:   %s/admin  (user: %s)", baseURL, adminUser)
 
