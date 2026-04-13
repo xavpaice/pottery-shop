@@ -19,16 +19,19 @@ The app runs reliably on Postgres with zero SQLite anywhere — CNPG manages the
 - ✓ Kubernetes deployment via Helm chart — existing
 - ✓ Multi-stage Docker build pushed to GHCR via GitHub Actions — existing
 
+### Validated
+
+- ✓ Replace go-sqlite3 (CGO) with pgx/v5 (pure Go) as the database driver — Validated in Phase 1: Go + Build
+- ✓ Update SQL dialect from SQLite to Postgres (types, syntax, sequences) — Validated in Phase 1: Go + Build
+- ✓ Docker build works without CGO (pure Go binary) — Validated in Phase 1: Go + Build
+
 ### Active
 
-- [ ] Replace go-sqlite3 (CGO) with pgx (pure Go) as the database driver
-- [ ] Update SQL dialect from SQLite to Postgres (types, syntax, sequences)
 - [ ] Add CloudNative-PG operator as a Helm subchart dependency
 - [ ] Create a CNPG Cluster resource in the Helm chart (default: 1 instance)
 - [ ] Make CNPG instance count configurable in values.yaml for HA (e.g. 3 replicas)
 - [ ] Mount the CNPG-generated Secret into the app pod as DATABASE_URL env var
 - [ ] Support external Postgres via postgres.external.dsn in values.yaml — skips CNPG Cluster creation
-- [ ] Docker build works without CGO (pure Go binary)
 
 ### Out of Scope
 
@@ -57,7 +60,7 @@ The app runs reliably on Postgres with zero SQLite anywhere — CNPG manages the
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| pgx over lib/pq | Pure Go (no CGO), better performance, actively maintained | — Pending |
+| pgx over lib/pq | Pure Go (no CGO), better performance, actively maintained | ✓ Implemented — Phase 1 |
 | CNPG as subchart | Simpler install — one `helm install` gets everything | — Pending |
 | External PG via DSN string | Simplest interface; user sets one value, chart injects as env var | — Pending |
 | No SQLite fallback | Clean cut reduces complexity; local dev uses Postgres too | — Pending |
@@ -81,4 +84,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-13 after initialization*
+*Last updated: 2026-04-13 — Phase 1 complete (Go + Build: driver swap, SQL dialect, CGO removal, integration tests)*
