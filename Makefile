@@ -5,26 +5,25 @@ GO := go
 
 ## build: compile the server binary
 build:
-	CGO_ENABLED=1 $(GO) build -o $(BINARY) ./cmd/server
+	CGO_ENABLED=0 $(GO) build -o $(BINARY) ./cmd/server
 
 ## test: run all tests
 test:
-	CGO_ENABLED=1 $(GO) test ./...
+	CGO_ENABLED=0 $(GO) test ./...
 
 ## test-verbose: run all tests with verbose output
 test-verbose:
-	CGO_ENABLED=1 $(GO) test -v ./...
+	CGO_ENABLED=0 $(GO) test -v ./...
 
 ## test-coverage: run tests with coverage report
 test-coverage:
-	CGO_ENABLED=1 $(GO) test -coverprofile=coverage.out ./...
+	CGO_ENABLED=0 $(GO) test -coverprofile=coverage.out ./...
 	$(GO) tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
 
 ## clean: remove build artifacts
 clean:
 	rm -f $(BINARY) coverage.out coverage.html
-	rm -f pottery.db
 
 ## run: build and run the server
 run: build
