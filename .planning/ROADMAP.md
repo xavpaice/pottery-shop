@@ -10,7 +10,7 @@ A brownfield Go pottery shop migrates from SQLite (CGO) to PostgreSQL (pure Go).
 - Integer phases (1, 2): Planned milestone work
 - Decimal phases (1.1, 1.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Go + Build** — Driver swap, SQL dialect fixes, Goose migrations, CGO removal, and local integration tests
+- [x] **Phase 1: Go + Build** — Driver swap, SQL dialect fixes, Goose migrations, CGO removal, and local integration tests (completed 2026-04-13)
 - [ ] **Phase 2: Helm + CI** — CNPG subchart, Cluster resource, secret injection, timing fix, and CI pipeline
 
 ## Phase Details
@@ -25,12 +25,12 @@ A brownfield Go pottery shop migrates from SQLite (CGO) to PostgreSQL (pure Go).
   3. All INSERT operations return the correct generated `id` (not zero) and product CRUD works end-to-end
   4. Integration tests pass with `go test ./...` using a testcontainers-go Postgres container — no SQLite, no mocks
   5. Docker `docker build` produces a working image with no CGO dependencies and no cross-compile scaffold
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 01-01-PLAN.md — Driver swap, SQL dialect fixes in product.go, Goose migration file
-- [ ] 01-02-PLAN.md — main.go pgxpool/Goose wiring, Dockerfile and Makefile CGO removal
-- [ ] 01-03-PLAN.md — testcontainers-go integration tests, go-sqlite3 removal, end-to-end verification
+- [x] 01-01-PLAN.md — Driver swap, SQL dialect fixes in product.go, Goose migration file
+- [x] 01-02-PLAN.md — main.go pgxpool/Goose wiring, Dockerfile and Makefile CGO removal
+- [x] 01-03-PLAN.md — testcontainers-go integration tests, go-sqlite3 removal, end-to-end verification
 
 ---
 
@@ -58,5 +58,5 @@ Phases execute in numeric order: 1 → 2
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Go + Build | 0/3 | Planning complete | - |
+| 1. Go + Build | 3/3 | Complete    | 2026-04-13 |
 | 2. Helm + CI | 0/2 | Not started | - |
