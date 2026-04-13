@@ -1,35 +1,94 @@
 package handlers
 
 import (
-	"database/sql"
+	"context"
+	"fmt"
 	"html/template"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
+	"github.com/pressly/goose/v3"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/modules/postgres"
+	"github.com/testcontainers/testcontainers-go/wait"
 
+	migrations "pottery-shop/internal/migrations"
 	"pottery-shop/internal/middleware"
 	"pottery-shop/internal/models"
 )
 
 const templatesDir = "../../templates"
 
+var handlersTestDBURL string
+
+func TestMain(m *testing.M) {
+	ctx := context.Background()
+
+	pgContainer, err := postgres.Run(ctx,
+		"postgres:16-alpine",
+		postgres.WithDatabase("testdb"),
+		postgres.WithUsername("test"),
+		postgres.WithPassword("test"),
+		testcontainers.WithWaitStrategy(
+			wait.ForLog("database system is ready to accept connections").
+				WithOccurrence(2),
+		),
+	)
+	if err != nil {
+		panic("failed to start postgres container: " + err.Error())
+	}
+	defer pgContainer.Terminate(ctx)
+
+	handlersTestDBURL, err = pgContainer.ConnectionString(ctx, "sslmode=disable")
+	if err != nil {
+		panic("failed to get connection string: " + err.Error())
+	}
+
+	// Run migrations once on shared container.
+	pool, err := pgxpool.New(ctx, handlersTestDBURL)
+	if err != nil {
+		panic("failed to create pool: " + err.Error())
+	}
+	db := stdlib.OpenDBFromPool(pool)
+
+	goose.SetBaseFS(migrations.FS)
+	if err := goose.SetDialect("postgres"); err != nil {
+		panic("goose dialect: " + err.Error())
+	}
+	if err := goose.Up(db, "."); err != nil {
+		panic("goose up: " + err.Error())
+	}
+	db.Close()
+	pool.Close()
+
+	os.Exit(m.Run())
+}
+
 func setupTestEnv(t *testing.T) (*PublicHandler, *middleware.SessionManager) {
 	t.Helper()
 
-	db, err := sql.Open("sqlite3", ":memory:?_foreign_keys=on")
+	pool, err := pgxpool.New(context.Background(), handlersTestDBURL)
 	if err != nil {
-		t.Fatalf("failed to open db: %v", err)
+		t.Fatalf("failed to create pool: %v", err)
 	}
-	t.Cleanup(func() { db.Close() })
+	db := stdlib.OpenDBFromPool(pool)
+	t.Cleanup(func() {
+		db.Close()
+		pool.Close()
+	})
+
+	// Truncate tables between tests
+	if _, err := db.Exec("TRUNCATE products, images RESTART IDENTITY CASCADE"); err != nil {
+		t.Fatalf("truncate: %v", err)
+	}
 
 	store := models.NewProductStore(db)
-	if err := store.Init(); err != nil {
-		t.Fatalf("failed to init db: %v", err)
-	}
 
 	funcMap := template.FuncMap{
 		"lower": strings.ToLower,
@@ -215,7 +274,7 @@ func TestAddToCart_Success(t *testing.T) {
 	p := createTestProduct(t, h.Store, "Cart Mug", 30.00, false)
 	createTestImage(t, h.Store, p.ID)
 
-	form := url.Values{"product_id": {"1"}}
+	form := url.Values{"product_id": {fmt.Sprintf("%d", p.ID)}}
 	req := httptest.NewRequest(http.MethodPost, "/cart/add", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Referer", "/")
@@ -234,9 +293,9 @@ func TestAddToCart_Success(t *testing.T) {
 func TestAddToCart_SoldProduct(t *testing.T) {
 	h, sm := setupTestEnv(t)
 
-	createTestProduct(t, h.Store, "Sold Item", 50.00, true)
+	p := createTestProduct(t, h.Store, "Sold Item", 50.00, true)
 
-	form := url.Values{"product_id": {"1"}}
+	form := url.Values{"product_id": {fmt.Sprintf("%d", p.ID)}}
 	req := httptest.NewRequest(http.MethodPost, "/cart/add", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
@@ -281,7 +340,7 @@ func TestRemoveFromCart_Success(t *testing.T) {
 	createTestImage(t, h.Store, p.ID)
 
 	// First add to cart
-	form := url.Values{"product_id": {"1"}}
+	form := url.Values{"product_id": {fmt.Sprintf("%d", p.ID)}}
 	req := httptest.NewRequest(http.MethodPost, "/cart/add", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Referer", "/")
@@ -289,7 +348,7 @@ func TestRemoveFromCart_Success(t *testing.T) {
 	sessionCookie := extractSessionCookie(rec)
 
 	// Then remove from cart
-	form = url.Values{"product_id": {"1"}}
+	form = url.Values{"product_id": {fmt.Sprintf("%d", p.ID)}}
 	req = httptest.NewRequest(http.MethodPost, "/cart/remove", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	addSessionCookie(req, sessionCookie)
@@ -334,7 +393,7 @@ func TestViewCart_WithItems(t *testing.T) {
 	createTestImage(t, h.Store, p.ID)
 
 	// Add to cart first
-	form := url.Values{"product_id": {"1"}}
+	form := url.Values{"product_id": {fmt.Sprintf("%d", p.ID)}}
 	req := httptest.NewRequest(http.MethodPost, "/cart/add", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Referer", "/")
@@ -383,7 +442,7 @@ func TestPlaceOrder_MissingNameEmail(t *testing.T) {
 	createTestImage(t, h.Store, p.ID)
 
 	// Add to cart
-	form := url.Values{"product_id": {"1"}}
+	form := url.Values{"product_id": {fmt.Sprintf("%d", p.ID)}}
 	req := httptest.NewRequest(http.MethodPost, "/cart/add", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Referer", "/")
@@ -412,7 +471,7 @@ func TestPlaceOrder_Success(t *testing.T) {
 	createTestImage(t, h.Store, p.ID)
 
 	// Add to cart
-	form := url.Values{"product_id": {"1"}}
+	form := url.Values{"product_id": {fmt.Sprintf("%d", p.ID)}}
 	req := httptest.NewRequest(http.MethodPost, "/cart/add", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Referer", "/")

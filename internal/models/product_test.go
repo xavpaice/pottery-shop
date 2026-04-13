@@ -1,27 +1,88 @@
 package models
 
 import (
+	"context"
 	"database/sql"
+	"os"
 	"testing"
 
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
+	"github.com/pressly/goose/v3"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/modules/postgres"
+	"github.com/testcontainers/testcontainers-go/wait"
+
+	migrations "pottery-shop/internal/migrations"
 )
+
+var testDBURL string
+
+func TestMain(m *testing.M) {
+	ctx := context.Background()
+
+	pgContainer, err := postgres.Run(ctx,
+		"postgres:16-alpine",
+		postgres.WithDatabase("testdb"),
+		postgres.WithUsername("test"),
+		postgres.WithPassword("test"),
+		testcontainers.WithWaitStrategy(
+			wait.ForLog("database system is ready to accept connections").
+				WithOccurrence(2),
+		),
+	)
+	if err != nil {
+		panic("failed to start postgres container: " + err.Error())
+	}
+	defer pgContainer.Terminate(ctx)
+
+	testDBURL, err = pgContainer.ConnectionString(ctx, "sslmode=disable")
+	if err != nil {
+		panic("failed to get connection string: " + err.Error())
+	}
+
+	// Run migrations once on shared container.
+	// NOTE on goose.Up path: when using the internal/migrations package pattern
+	// where migrations.FS embeds *.sql at the package root via //go:embed *.sql,
+	// the correct goose.Up path is "." (root of the embedded FS). Using "migrations"
+	// would silently find zero migration files and create no tables.
+	pool, err := pgxpool.New(ctx, testDBURL)
+	if err != nil {
+		panic("failed to create pool: " + err.Error())
+	}
+	db := stdlib.OpenDBFromPool(pool)
+
+	goose.SetBaseFS(migrations.FS)
+	if err := goose.SetDialect("postgres"); err != nil {
+		panic("goose dialect: " + err.Error())
+	}
+	if err := goose.Up(db, "."); err != nil {
+		panic("goose up: " + err.Error())
+	}
+	db.Close()
+	pool.Close()
+
+	os.Exit(m.Run())
+}
 
 func setupTestStore(t *testing.T) *ProductStore {
 	t.Helper()
-	db, err := sql.Open("sqlite3", ":memory:")
+	pool, err := pgxpool.New(context.Background(), testDBURL)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
-	// Enable foreign keys
-	db.Exec("PRAGMA foreign_keys = ON")
-	t.Cleanup(func() { db.Close() })
+	db := stdlib.OpenDBFromPool(pool)
+	t.Cleanup(func() {
+		db.Close()
+		pool.Close()
+	})
 
-	store := NewProductStore(db)
-	if err := store.Init(); err != nil {
-		t.Fatalf("init store: %v", err)
+	// Truncate tables between tests — resets identity sequences for predictable IDs
+	if _, err := db.Exec("TRUNCATE products, images RESTART IDENTITY CASCADE"); err != nil {
+		t.Fatalf("truncate: %v", err)
 	}
-	return store
+
+	return NewProductStore(db)
 }
 
 func createSampleProduct(t *testing.T, store *ProductStore, title string, price float64) *Product {
@@ -31,14 +92,6 @@ func createSampleProduct(t *testing.T, store *ProductStore, title string, price 
 		t.Fatalf("create product: %v", err)
 	}
 	return p
-}
-
-func TestInit(t *testing.T) {
-	store := setupTestStore(t)
-	// Init is idempotent — calling again should not error
-	if err := store.Init(); err != nil {
-		t.Fatalf("second Init call failed: %v", err)
-	}
 }
 
 func TestCreateAndGetByID(t *testing.T) {
