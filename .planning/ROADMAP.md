@@ -25,11 +25,12 @@ A brownfield Go pottery shop migrates from SQLite (CGO) to PostgreSQL (pure Go).
   3. All INSERT operations return the correct generated `id` (not zero) and product CRUD works end-to-end
   4. Integration tests pass with `go test ./...` using a testcontainers-go Postgres container — no SQLite, no mocks
   5. Docker `docker build` produces a working image with no CGO dependencies and no cross-compile scaffold
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 1.1: Go code changes — replace driver, fix SQL dialect, add Goose migrations, read DATABASE_URL
-- [ ] 1.2: Build and test — CGO removal from Dockerfile, testcontainers-go integration test wiring
+- [ ] 01-01-PLAN.md — Driver swap, SQL dialect fixes in product.go, Goose migration file
+- [ ] 01-02-PLAN.md — main.go pgxpool/Goose wiring, Dockerfile and Makefile CGO removal
+- [ ] 01-03-PLAN.md — testcontainers-go integration tests, go-sqlite3 removal, end-to-end verification
 
 ---
 
@@ -57,5 +58,5 @@ Phases execute in numeric order: 1 → 2
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Go + Build | 0/2 | Not started | - |
+| 1. Go + Build | 0/3 | Planning complete | - |
 | 2. Helm + CI | 0/2 | Not started | - |
