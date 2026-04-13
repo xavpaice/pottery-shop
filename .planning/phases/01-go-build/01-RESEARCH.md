@@ -632,7 +632,7 @@ Note: `CURRENT_TIMESTAMP` is valid in Postgres (SQL standard). Either works. `NO
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Goose embed: package vs. cmd/server embed declaration**
    - What we know: Two valid patterns exist — embed in `internal/migrations/migrations.go` (cleaner) or embed directly in `cmd/server/main.go` with `../../internal/migrations` path.
