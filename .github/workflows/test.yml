@@ -18,13 +18,11 @@ jobs:
         with:
           go-version: '1.26'
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc
-
       - name: Verify dependencies
         run: go mod verify
+
+      - name: Run vet
+        run: go vet ./...
 
       - name: Run tests
         run: make test
@@ -41,5 +39,14 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@v4
 
-      - name: Lint Helm chart
-        run: make helm-lint
+      - name: Lint (managed mode)
+        run: helm lint chart/clay/ --values chart/clay/ci/managed-values.yaml
+
+      - name: Lint (external mode)
+        run: helm lint chart/clay/ --values chart/clay/ci/external-values.yaml
+
+      - name: Template (managed mode)
+        run: helm template clay chart/clay/ --values chart/clay/ci/managed-values.yaml
+
+      - name: Template (external mode)
+        run: helm template clay chart/clay/ --values chart/clay/ci/external-values.yaml

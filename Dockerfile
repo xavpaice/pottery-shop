@@ -1,24 +1,17 @@
-# Build stage — use xx for cross-compilation with CGO
-FROM --platform=$BUILDPLATFORM tonistiigi/xx:1.6.1 AS xx
-
-FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS builder
-COPY --from=xx / /
-
-ARG TARGETPLATFORM
-RUN apk add --no-cache clang lld && xx-apk add --no-cache gcc musl-dev
+# Build stage — pure Go, no CGO
+FROM golang:1.26-alpine AS builder
 
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=1 xx-go build -o clay-server ./cmd/server && \
-    xx-verify clay-server
+RUN CGO_ENABLED=0 go build -o clay-server ./cmd/server
 
 # Runtime stage
-FROM --platform=$TARGETPLATFORM alpine:3.20
+FROM alpine:3.20
 
-RUN apk add --no-cache ca-certificates sqlite-libs
+RUN apk add --no-cache ca-certificates
 
 WORKDIR /app
 
@@ -30,7 +23,6 @@ COPY --from=builder /app/static ./static
 RUN mkdir -p /data/uploads/thumbnails
 
 ENV PORT=8080
-ENV DB_PATH=/data/clay.db
 ENV UPLOAD_DIR=/data/uploads
 
 EXPOSE 8080

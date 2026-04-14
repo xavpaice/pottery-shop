@@ -3,3 +3,4 @@ uploads/*.jpeg
 pottery.db
 .env
 pottery-server
+.envrc

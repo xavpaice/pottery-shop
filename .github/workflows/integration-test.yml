@@ -53,6 +53,19 @@ jobs:
           timeout-minutes: 10
           export-kubeconfig: true
 
+      # CNPG is a cluster-scoped operator — install it separately before the clay chart
+      # so its CRDs are registered when the chart creates a Cluster resource.
+      - name: Add CNPG Helm repo
+        run: helm repo add cnpg https://cloudnative-pg.github.io/charts
+
+      - name: Install CNPG operator
+        run: |
+          helm install cnpg cnpg/cloudnative-pg \
+            --namespace cnpg-system \
+            --create-namespace \
+            --wait \
+            --timeout 3m
+
       - name: Install chart on CMX cluster
         run: |
           # Create namespace with Helm ownership labels (chart includes namespace.yaml)
@@ -72,6 +85,8 @@ jobs:
             --namespace clay \
             --set image.tag=pr-${{ github.event.pull_request.number }} \
             --set imagePullSecrets[0].name=ghcr-pull-secret \
+            --set secrets.ADMIN_PASS=ci-test-only \
+            --set secrets.SESSION_SECRET=ci-test-session-secret-not-for-production \
             --set ingress.enabled=false \
             --set persistence.enabled=false \
             --wait \

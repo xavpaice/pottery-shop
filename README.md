@@ -1,6 +1,6 @@
 # Clay.nz 🏺
 
-A simple online shop for one-of-a-kind clay and sculpture pieces. Built with Go, SQLite, and plain HTML/CSS.
+A simple online shop for one-of-a-kind clay and sculpture pieces. Built with Go, PostgreSQL, and plain HTML/CSS.
 
 ## Features
 
@@ -14,18 +14,29 @@ A simple online shop for one-of-a-kind clay and sculpture pieces. Built with Go,
 ## Prerequisites
 
 - Go 1.26+
-- GCC (for SQLite via cgo) — on Debian/Ubuntu: `apt install build-essential`
 - Make
+- Docker (required for integration tests — testcontainers-go spins up a Postgres container)
+- For Kubernetes deployment: a cluster with the [CloudNative-PG operator](https://cloudnative-pg.io) installed
 
 ## Quick Start
 
+The server requires a PostgreSQL database. The easiest way to run one locally is with Docker:
+
 ```bash
+# Start a local Postgres instance
+docker run -d --name clay-pg \
+  -e POSTGRES_DB=clay \
+  -e POSTGRES_USER=clay \
+  -e POSTGRES_PASSWORD=dev-only \
+  -p 5432:5432 \
+  postgres:16-alpine
+
 # Clone / navigate to the project
 cd pottery-shop
 
 # Copy env config
 cp .env.example .env
-# Edit .env with your admin password, SMTP settings, etc.
+# Set DATABASE_URL and your admin password in .env
 
 # Download dependencies
 go mod tidy
@@ -34,7 +45,7 @@ go mod tidy
 go run ./cmd/server
 
 # Visit http://localhost:8080
-# Admin: http://localhost:8080/admin (default: admin / changeme)
+# Admin: http://localhost:8080/admin
 # Or visit https://clay.nz once deployed
 ```
 
@@ -47,9 +58,9 @@ All config is via environment variables (or a `.env` file if you use something l
 | `PORT` | `8080` | Server port |
 | `BASE_URL` | `http://localhost:8080` | Public URL (used in order emails) |
 | `ADMIN_USER` | `admin` | Admin username |
-| `ADMIN_PASS` | `changeme` | Admin password |
-| `SESSION_SECRET` | (default) | Random string for cookie signing (≥32 chars) |
-| `DB_PATH` | `clay.db` | SQLite database file path |
+| `ADMIN_PASS` | — | Admin password (**required**) |
+| `SESSION_SECRET` | — | Random string for cookie signing (**required**, ≥32 chars) |
+| `DATABASE_URL` | — | Postgres connection string (**required**, e.g. `postgresql://user:pass@host:5432/clay`) |
 | `UPLOAD_DIR` | `uploads` | Image upload directory |
 | `SMTP_HOST` | (empty) | SMTP server — if empty, emails are logged to stdout |
 | `SMTP_PORT` | `587` | SMTP port |
@@ -85,22 +96,38 @@ docker run -p 8080:8080 \
 make docker
 ```
 
-The image is a two-stage build (~30MB) — Alpine with just the binary, templates, and static assets. Data lives at `/data` (SQLite DB + uploaded images).
+The image is a two-stage build — Alpine with just the binary, templates, and static assets. It is a pure CGO-free Go binary (`CGO_ENABLED=0`). Uploaded images are stored at `/data/uploads`; the database is external (Postgres).
 
 ### Kubernetes (Helm)
 
 A Helm chart is provided in `chart/clay/`. This is the recommended way to deploy.
 
-```bash
-# Install
-helm install clay ./chart/clay -n clay --create-namespace
+#### Prerequisites
 
-# Install with custom values
+The chart creates a CloudNative-PG `Cluster` resource when `postgres.managed: true` (the default). The CNPG operator must be installed on the cluster first — it is a cluster-scoped singleton and is not bundled with the chart:
+
+```bash
+helm repo add cnpg https://cloudnative-pg.github.io/charts
+helm install cnpg cnpg/cloudnative-pg \
+  --namespace cnpg-system \
+  --create-namespace \
+  --wait
+```
+
+#### Install
+
+```bash
+# Install (CNPG manages the Postgres cluster)
 helm install clay ./chart/clay -n clay --create-namespace \
   --set secrets.ADMIN_PASS=your-secure-password \
-  --set secrets.SESSION_SECRET=$(openssl rand -hex 32) \
-  --set ingress.hosts[0].host=your-domain.com \
-  --set config.BASE_URL=https://your-domain.com
+  --set secrets.SESSION_SECRET=$(openssl rand -hex 32)
+
+# Install with an external Postgres (CNPG not required)
+helm install clay ./chart/clay -n clay --create-namespace \
+  --set postgres.managed=false \
+  --set postgres.external.dsn=postgresql://user:pass@host:5432/clay \
+  --set secrets.ADMIN_PASS=your-secure-password \
+  --set secrets.SESSION_SECRET=$(openssl rand -hex 32)
 
 # Upgrade after changes
 helm upgrade clay ./chart/clay -n clay
@@ -112,10 +139,14 @@ Key `values.yaml` settings to customise:
 |---|---|---|
 | `image.repository` | `ghcr.io/xavpaice/pottery-shop` | Container image |
 | `image.tag` | `latest` | Pin to a SHA tag for production |
-| `secrets.ADMIN_PASS` | `changeme` | **Change before deploying** |
-| `secrets.SESSION_SECRET` | placeholder | **Change before deploying** |
+| `secrets.ADMIN_PASS` | — | **Required** — helm render fails if empty |
+| `secrets.SESSION_SECRET` | — | **Required** — helm render fails if empty |
+| `postgres.managed` | `true` | `true` = CNPG cluster; `false` = external DSN |
+| `postgres.external.dsn` | `""` | Required when `managed: false` |
+| `postgres.cluster.instances` | `1` | CNPG cluster replica count |
+| `postgres.cluster.storage.size` | `5Gi` | CNPG PVC size |
 | `ingress.hosts[0].host` | `clay.nz` | Your domain |
-| `persistence.size` | `5Gi` | Storage for SQLite DB + uploads |
+| `persistence.size` | `5Gi` | PVC for uploaded images |
 | `imagePullSecrets` | `[]` | Required for private images (see below) |
 
 #### Private image registry
@@ -143,8 +174,6 @@ Or via the command line:
 helm install clay ./chart/clay -n clay --create-namespace \
   --set imagePullSecrets[0].name=ghcr-creds
 ```
-
-> **Note:** SQLite doesn't support concurrent writers, so `replicaCount` should stay at `1` with the default `Recreate` strategy. If you need horizontal scaling, swap SQLite for PostgreSQL.
 
 ### Kubernetes (raw manifests)
 
@@ -209,7 +238,7 @@ The server reads templates and static files from the working directory, so run f
 
 ### Testing
 
-Tests use in-memory SQLite and real templates via `httptest` — no external services needed.
+Integration tests use [testcontainers-go](https://testcontainers.com/guides/getting-started-with-testcontainers-for-go/) to spin up a real Postgres container — Docker must be running locally.
 
 ```bash
 make test                # Quick pass/fail
@@ -227,16 +256,19 @@ make test-coverage       # HTML coverage report
 
 ### CI/CD
 
-GitHub Actions runs on every PR and push to `main`:
-- Sets up Go 1.26 + gcc
-- Verifies module dependencies
-- Runs `make test`
-- Runs `make build`
-- Lints the Helm chart (`make helm-lint`)
+Three GitHub Actions workflows run on PRs and pushes to `main`:
 
-On merge to `main`, a separate workflow builds and pushes the Docker image to `ghcr.io/xavpaice/pottery-shop` with `latest` and SHA tags.
+**`test.yml`** — runs on every PR and push:
+- `go vet` + `make test` (testcontainers-go Postgres) + `make build` with `CGO_ENABLED=0`
+- Helm lint + `helm template` render check in both managed and external modes
 
-See `.github/workflows/test.yml` and `.github/workflows/publish.yml` for details.
+**`integration-test.yml`** — runs on PRs (non-fork only):
+- Builds and pushes a PR-tagged image to GHCR
+- Installs the CNPG operator on a live k3s cluster (via CMX)
+- Installs the clay chart and verifies the pod reaches Running
+
+**`publish.yml`** — runs on merge to `main`:
+- Builds and pushes the Docker image to `ghcr.io/xavpaice/pottery-shop` with `latest` and SHA tags
 
 ### Adding new features
 

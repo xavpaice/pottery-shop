@@ -47,3 +47,15 @@ Chart label
 {{- define "clay.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
+
+{{/*
+Validate required secrets — fail fast at render time rather than at runtime.
+*/}}
+{{- define "clay.validateSecrets" -}}
+{{- if not .Values.secrets.ADMIN_PASS }}
+  {{- fail "secrets.ADMIN_PASS must be set" }}
+{{- end }}
+{{- if not .Values.secrets.SESSION_SECRET }}
+  {{- fail "secrets.SESSION_SECRET must be set" }}
+{{- end }}
+{{- end }}
