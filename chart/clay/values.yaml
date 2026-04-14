@@ -57,7 +57,7 @@ config:
   SMTP_HOST: ""
   SMTP_PORT: "587"
   SMTP_FROM: ""
-  ORDER_EMAIL: "xavpaice@gmail.com"
+  ORDER_EMAIL: ""               # REQUIRED — recipient address for order notification emails
 
 secrets:
   ADMIN_PASS: ""          # REQUIRED — must be set at deploy time
