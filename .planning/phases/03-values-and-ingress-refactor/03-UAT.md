@@ -1,14 +1,14 @@
 ---
-status: partial
+status: complete
 phase: 03-values-and-ingress-refactor
 source: [03-01-SUMMARY.md]
 started: 2026-04-14T05:30:00Z
-updated: 2026-04-14T05:35:00Z
+updated: 2026-04-14T05:40:00Z
 ---
 
 ## Current Test
 
-[testing paused — 1 item outstanding]
+[testing complete]
 
 ## Tests
 
@@ -42,18 +42,17 @@ note: static — nginx only appears inside # MIGRATION NOTE comment block in val
 expected: |
   helm lint chart/clay -f chart/clay/ci/managed-values.yaml exits 0, 0 chart(s) failed.
   helm lint chart/clay -f chart/clay/ci/external-values.yaml exits 0, 0 chart(s) failed.
-result: blocked
-blocked_by: other
-reason: "helm not installed in this environment — needs local helm run by user"
+result: pass
+note: user confirmed — helm lint passes for both managed-values.yaml and external-values.yaml
 
 ## Summary
 
 total: 5
-passed: 4
+passed: 5
 issues: 0
 pending: 0
 skipped: 0
-blocked: 1
+blocked: 0
 
 ## Gaps
 
