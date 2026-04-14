@@ -4,14 +4,19 @@
 
 A brownfield Go pottery shop migrates from SQLite (CGO) to PostgreSQL (pure Go). Phase 1 completes all code-level changes — driver swap, SQL dialect fixes, schema migration via Goose, CGO removal from the build, and testcontainers-go integration tests — so the app can be validated locally against a real Postgres container before any cluster work begins. Phase 2 wires the Kubernetes delivery layer: CNPG operator as a Helm subchart, the Cluster resource, secret injection, timing mitigation, and CI pipeline jobs.
 
+Milestone v1.1 (TLS) begins at Phase 3. Three phases expose the app over HTTPS via Kubernetes Ingress with cert-manager-managed certificates: Phase 3 restructures the values.yaml ingress block and updates the Ingress template and helpers for all three TLS modes; Phase 4 adds the ClusterIssuer and Certificate templates for Let's Encrypt and self-signed modes plus the cert-manager integration-test pre-install step; Phase 5 creates the three CI values files and extends the test pipeline to lint and template all TLS mode variants.
+
 ## Phases
 
 **Phase Numbering:**
-- Integer phases (1, 2): Planned milestone work
+- Integer phases (1, 2, 3, 4, 5): Planned milestone work
 - Decimal phases (1.1, 1.2): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 1: Go + Build** — Driver swap, SQL dialect fixes, Goose migrations, CGO removal, and local integration tests (completed 2026-04-13)
 - [ ] **Phase 2: Helm + CI** — CNPG subchart, Cluster resource, secret injection, timing fix, and CI pipeline
+- [ ] **Phase 3: Values and Ingress Refactor** — Restructure ingress values block, update Ingress template with Traefik annotations, add _helpers.tpl validation and TLS secret name helper
+- [ ] **Phase 4: cert-manager CR Templates** — ClusterIssuer and Certificate templates for letsencrypt and selfsigned modes; cert-manager pre-install step in integration-test.yml
+- [ ] **Phase 5: CI Validation Extension** — Three TLS CI values files and six new lint/template steps in test.yml
 
 ## Phase Details
 
@@ -51,12 +56,60 @@ Plans:
 
 ---
 
+### Phase 3: Values and Ingress Refactor
+**Goal**: The chart's ingress values block uses a single-host, mode-driven shape; the Ingress template renders correctly for all three TLS modes; and the helpers layer validates required values at render time.
+**Depends on**: Phase 2
+**Requirements**: INGR-01, INGR-02, INGR-03, INGR-04, TLS-03
+**Success Criteria** (what must be TRUE):
+  1. `helm template chart/clay --set ingress.enabled=true --set ingress.host=shop.example.com --set ingress.tls.mode=custom --set ingress.tls.secretName=my-tls` renders an Ingress resource with `ingressClassName: traefik`, the Traefik websecure annotation, and a TLS block pointing at `my-tls` — no ClusterIssuer or Certificate rendered
+  2. `helm template chart/clay --set ingress.enabled=true` fails at render time with a clear error message about missing `ingress.host` (clay.validateIngress fires)
+  3. `helm template chart/clay --set ingress.enabled=true --set ingress.tls.mode=letsencrypt --set ingress.host=shop.example.com` fails at render time with a clear error about missing `ingress.tls.acme.email`
+  4. The nginx proxy-body-size annotation is absent from the default Ingress output; no nginx-specific annotation keys appear in the default values
+  5. `helm lint chart/clay` passes cleanly with the refactored values.yaml
+**Plans**: TBD
+**UI hint**: no
+
+---
+
+### Phase 4: cert-manager CR Templates
+**Goal**: The chart renders ClusterIssuer and Certificate resources for letsencrypt and selfsigned modes, all cert-manager resources use post-install hook annotations to avoid webhook timing races, and the integration test workflow installs cert-manager before the clay chart.
+**Depends on**: Phase 3
+**Requirements**: TLS-01, TLS-02, CI-06
+**Success Criteria** (what must be TRUE):
+  1. `helm template chart/clay --set ingress.enabled=true --set ingress.host=shop.example.com --set ingress.tls.mode=letsencrypt --set ingress.tls.acme.email=admin@example.com` renders a ClusterIssuer (ACME HTTP-01, staging endpoint) and a Certificate CR referencing it — both carry `helm.sh/hook: post-install,post-upgrade` annotations
+  2. `helm template chart/clay --set ingress.enabled=true --set ingress.host=shop.example.com --set ingress.tls.mode=selfsigned` renders a SelfSigned ClusterIssuer and a Certificate CR referencing a separate CA ClusterIssuer (two-step CA bootstrap) — no ACME resources present
+  3. `helm template chart/clay --set ingress.enabled=true --set ingress.host=shop.example.com --set ingress.tls.mode=custom --set ingress.tls.secretName=my-tls` renders zero ClusterIssuer and zero Certificate resources
+  4. The TLS secret name referenced in the Ingress `tls.secretName` field and in the Certificate `spec.secretName` field are identical — both derived from the same `clay.tlsSecretName` helper
+  5. `integration-test.yml` installs cert-manager v1.20.2 via `helm install cert-manager jetstack/cert-manager --set crds.enabled=true` before the clay chart install step
+**Plans**: TBD
+**UI hint**: no
+
+---
+
+### Phase 5: CI Validation Extension
+**Goal**: The CI pipeline validates all three TLS modes on every push using dedicated values files, and helm lint plus helm template pass for each mode without requiring cert-manager CRDs to be present.
+**Depends on**: Phase 4
+**Requirements**: CI-04, CI-05
+**Success Criteria** (what must be TRUE):
+  1. Three files exist under `chart/clay/ci/` — `tls-letsencrypt-values.yaml`, `tls-selfsigned-values.yaml`, `tls-custom-values.yaml` — each with the correct ingress and TLS values for its mode
+  2. `helm lint chart/clay --values chart/clay/ci/tls-letsencrypt-values.yaml` passes (no errors, no cert-manager CRDs needed)
+  3. `helm lint chart/clay --values chart/clay/ci/tls-selfsigned-values.yaml` passes
+  4. `helm lint chart/clay --values chart/clay/ci/tls-custom-values.yaml` passes
+  5. `test.yml` contains six new steps (lint + template for each of the three TLS modes) and all six pass on a push without cluster access
+**Plans**: TBD
+**UI hint**: no
+
+---
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Go + Build | 3/3 | Complete    | 2026-04-13 |
 | 2. Helm + CI | 0/2 | Not started | - |
+| 3. Values and Ingress Refactor | 0/0 | Not started | - |
+| 4. cert-manager CR Templates | 0/0 | Not started | - |
+| 5. CI Validation Extension | 0/0 | Not started | - |
