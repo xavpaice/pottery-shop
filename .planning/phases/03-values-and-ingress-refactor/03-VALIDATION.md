@@ -97,3 +97,12 @@ Both conditions are satisfied at runtime by expected values. Tests G-02a and G-0
 | Gaps found | 8 (7 MISSING + 1 PARTIAL) |
 | Resolved | 8 |
 | Escalated | 0 |
+
+## Validation Audit 2026-04-14 (re-run)
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
+| Tests run | 10 passed, 0 failed |
