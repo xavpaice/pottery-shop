@@ -29,8 +29,10 @@ spec:
                 name: {{ include "clay.fullname" . }}
                 port:
                   number: {{ .Values.service.port }}
+  {{- if .Values.ingress.tls.mode }}
   tls:
     - secretName: {{ include "clay.tlsSecretName" . }}
       hosts:
         - {{ .Values.ingress.host | quote }}
+  {{- end }}
 {{- end }}
