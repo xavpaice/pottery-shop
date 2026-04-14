@@ -119,8 +119,11 @@ Plans:
   4. `helm lint chart/clay --values chart/clay/ci/tls-custom-values.yaml` passes
   5. `test.yml` contains six new steps (lint + template for each of the three TLS modes) and all six pass on a push without cluster access
   6. `chart/tests/helm-template-test.sh` is invoked in `test.yml` — all 10 behavioral tests covering INGR-01..04 and TLS-03 pass in CI on every push
-**Plans**: TBD
-**UI hint**: no
+**Plans:** 2 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — Create three TLS CI values files (letsencrypt, selfsigned, custom) in chart/clay/ci/
+- [ ] 05-02-PLAN.md — Append six TLS lint+template steps and behavioral test invocation to test.yml helm-lint job
 
 ---
 
@@ -136,4 +139,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 3.1 → 4 → 5
 | 3. Values and Ingress Refactor | 0/1 | Not started | - |
 | 3.1. Phase 3 Verification Closure (INSERTED) | 0/1 | Not started | - |
 | 4. cert-manager CR Templates | 0/2 | Not started | - |
-| 5. CI Validation Extension | 0/0 | Not started | - |
+| 5. CI Validation Extension | 0/2 | Not started | - |
