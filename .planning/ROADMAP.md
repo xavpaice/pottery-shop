@@ -43,11 +43,11 @@ Plans:
   2. After `helm install` on a cluster with the CNPG operator, the app pod reaches `Running` and its readiness probe passes without manual intervention
   3. `DATABASE_URL` is injected from the CNPG-generated Secret in managed mode and from `postgres.external.dsn` in external mode — no `DB_PATH` reference remains anywhere in the chart
   4. The CI pipeline runs build, lint/test, and Helm validation jobs on every push and reports failures before merge
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 2.1: Helm wiring — CNPG subchart, values.yaml postgres block, Cluster template, secret injection, timing mitigation, DB_PATH cleanup
-- [ ] 2.2: CI pipeline — build job CGO update, testcontainers-go test job, Helm lint/template validation job
+- [ ] 02-01-PLAN.md — Helm chart wiring: CNPG subchart dependency, values.yaml postgres block, Cluster CRD template, deployment.yaml updates (strategy, init container, DATABASE_URL injection), DB_PATH removal
+- [ ] 02-02-PLAN.md — CI pipeline: remove gcc from test job, add go vet, extend helm-lint job with dependency resolution and dual-mode lint+template validation
 
 ---
 
