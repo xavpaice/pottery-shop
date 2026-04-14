@@ -66,8 +66,10 @@ Plans:
   3. `helm template chart/clay --set ingress.enabled=true --set ingress.tls.mode=letsencrypt --set ingress.host=shop.example.com` fails at render time with a clear error about missing `ingress.tls.acme.email`
   4. The nginx proxy-body-size annotation is absent from the default Ingress output; no nginx-specific annotation keys appear in the default values
   5. `helm lint chart/clay` passes cleanly with the refactored values.yaml
-**Plans**: TBD
-**UI hint**: no
+**Plans:** 1 plan
+
+Plans:
+- [ ] 03-01-PLAN.md — Values.yaml ingress block replacement, clay.validateIngress + clay.tlsSecretName helpers, ingress.yaml template rewrite
 
 ---
 
@@ -110,6 +112,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Go + Build | 3/3 | Complete    | 2026-04-13 |
 | 2. Helm + CI | 0/2 | Not started | - |
-| 3. Values and Ingress Refactor | 0/0 | Not started | - |
+| 3. Values and Ingress Refactor | 0/1 | Not started | - |
 | 4. cert-manager CR Templates | 0/0 | Not started | - |
 | 5. CI Validation Extension | 0/0 | Not started | - |
