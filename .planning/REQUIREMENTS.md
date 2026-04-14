@@ -7,16 +7,16 @@
 
 ### Ingress
 
-- [ ] **INGR-01**: User can expose the app via a Kubernetes Ingress — `ingressClassName: traefik`, `ingress.enabled` gate, `ingress.host` scalar in values.yaml
-- [ ] **INGR-02**: Ingress resource carries Traefik-specific annotations — `traefik.ingress.kubernetes.io/router.entrypoints: websecure` and `acme.cert-manager.io/http01-edit-in-place: "true"`
-- [ ] **INGR-03**: `clay.validateIngress` helper in `_helpers.tpl` fails fast at render time on missing required values (mirrors existing `clay.validateSecrets`)
-- [ ] **INGR-04**: Nginx-specific annotation (`nginx.ingress.kubernetes.io/proxy-body-size`) removed from Ingress defaults
+- [x] **INGR-01**: User can expose the app via a Kubernetes Ingress — `ingressClassName: traefik`, `ingress.enabled` gate, `ingress.host` scalar in values.yaml
+- [x] **INGR-02**: Ingress resource carries Traefik-specific annotations — `traefik.ingress.kubernetes.io/router.entrypoints: websecure` and `acme.cert-manager.io/http01-edit-in-place: "true"`
+- [x] **INGR-03**: `clay.validateIngress` helper in `_helpers.tpl` fails fast at render time on missing required values (mirrors existing `clay.validateSecrets`)
+- [x] **INGR-04**: Nginx-specific annotation (`nginx.ingress.kubernetes.io/proxy-body-size`) removed from Ingress defaults
 
 ### TLS
 
 - [ ] **TLS-01**: User can enable Let's Encrypt mode (`ingress.tls.mode: letsencrypt`) — HTTP-01 ACME ClusterIssuer, staging ACME URL by default, production opt-in via `ingress.tls.acme.production: true`
 - [ ] **TLS-02**: User can enable self-signed mode (`ingress.tls.mode: selfsigned`) — two-step CA bootstrap: SelfSigned ClusterIssuer → CA cert → CA ClusterIssuer → app cert
-- [ ] **TLS-03**: User can enable custom mode (`ingress.tls.mode: custom`) — chart references a user-provided TLS Secret by name; no cert-manager resources created
+- [x] **TLS-03**: User can enable custom mode (`ingress.tls.mode: custom`) — chart references a user-provided TLS Secret by name; no cert-manager resources created
 
 ### CI
 
@@ -69,13 +69,13 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INGR-01 | Phase 3.1 | Pending |
-| INGR-02 | Phase 3.1 | Pending |
-| INGR-03 | Phase 3.1 | Pending |
-| INGR-04 | Phase 3.1 | Pending |
+| INGR-01 | Phase 3 | Satisfied |
+| INGR-02 | Phase 3 | Satisfied |
+| INGR-03 | Phase 3 | Satisfied |
+| INGR-04 | Phase 3 | Satisfied |
 | TLS-01 | Phase 4 | Pending |
 | TLS-02 | Phase 4 | Pending |
-| TLS-03 | Phase 3.1 | Pending |
+| TLS-03 | Phase 3 | Satisfied |
 | CI-04 | Phase 5 | Pending |
 | CI-05 | Phase 5 | Pending |
 | CI-06 | Phase 4 | Pending |
