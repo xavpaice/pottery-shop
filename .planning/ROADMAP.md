@@ -100,8 +100,11 @@ Plans:
   3. `helm template chart/clay --set ingress.enabled=true --set ingress.host=shop.example.com --set ingress.tls.mode=custom --set ingress.tls.secretName=my-tls` renders zero ClusterIssuer and zero Certificate resources
   4. The TLS secret name referenced in the Ingress `tls.secretName` field and in the Certificate `spec.secretName` field are identical — both derived from the same `clay.tlsSecretName` helper
   5. `integration-test.yml` installs cert-manager v1.20.2 via `helm install cert-manager jetstack/cert-manager --set crds.enabled=true` before the clay chart install step
-**Plans**: TBD
-**UI hint**: no
+**Plans:** 2 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Create letsencrypt and selfsigned cert-manager template files, add Ingress cluster-issuer annotation
+- [ ] 04-02-PLAN.md — Add cert-manager pre-install to integration-test.yml, extend helm-template-test.sh with TLS-01/TLS-02 assertions
 
 ---
 
@@ -132,5 +135,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 3.1 → 4 → 5
 | 2. Helm + CI | 0/2 | Not started | - |
 | 3. Values and Ingress Refactor | 0/1 | Not started | - |
 | 3.1. Phase 3 Verification Closure (INSERTED) | 0/1 | Not started | - |
-| 4. cert-manager CR Templates | 0/0 | Not started | - |
+| 4. cert-manager CR Templates | 0/2 | Not started | - |
 | 5. CI Validation Extension | 0/0 | Not started | - |
