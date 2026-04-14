@@ -26,6 +26,12 @@ metrics:
   tasks_completed: 2
   tasks_total: 2
   files_modified: 3
+requirements_completed:
+  - INGR-01
+  - INGR-02
+  - INGR-03
+  - INGR-04
+  - TLS-03
 ---
 
 # Phase 3 Plan 01: Values and Ingress Refactor Summary
