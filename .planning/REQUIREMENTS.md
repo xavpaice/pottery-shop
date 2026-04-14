@@ -69,13 +69,13 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INGR-01 | Phase 3 | Pending |
-| INGR-02 | Phase 3 | Pending |
-| INGR-03 | Phase 3 | Pending |
-| INGR-04 | Phase 3 | Pending |
+| INGR-01 | Phase 3.1 | Pending |
+| INGR-02 | Phase 3.1 | Pending |
+| INGR-03 | Phase 3.1 | Pending |
+| INGR-04 | Phase 3.1 | Pending |
 | TLS-01 | Phase 4 | Pending |
 | TLS-02 | Phase 4 | Pending |
-| TLS-03 | Phase 3 | Pending |
+| TLS-03 | Phase 3.1 | Pending |
 | CI-04 | Phase 5 | Pending |
 | CI-05 | Phase 5 | Pending |
 | CI-06 | Phase 4 | Pending |
@@ -87,4 +87,4 @@
 
 ---
 *Requirements defined: 2026-04-14*
-*Last updated: 2026-04-14 after roadmap creation — traceability confirmed*
+*Last updated: 2026-04-14 after gap closure planning — INGR-01..04 and TLS-03 assigned to Phase 3.1 (verification closure); Phase 4 augmented with INTEGRATION-02; Phase 5 augmented with INTEGRATION-03*

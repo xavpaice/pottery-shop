@@ -15,7 +15,8 @@ Milestone v1.1 (TLS) begins at Phase 3. Three phases expose the app over HTTPS v
 - [x] **Phase 1: Go + Build** — Driver swap, SQL dialect fixes, Goose migrations, CGO removal, and local integration tests (completed 2026-04-13)
 - [ ] **Phase 2: Helm + CI** — CNPG subchart, Cluster resource, secret injection, timing fix, and CI pipeline
 - [ ] **Phase 3: Values and Ingress Refactor** — Restructure ingress values block, update Ingress template with Traefik annotations, add _helpers.tpl validation and TLS secret name helper
-- [ ] **Phase 4: cert-manager CR Templates** — ClusterIssuer and Certificate templates for letsencrypt and selfsigned modes; cert-manager pre-install step in integration-test.yml
+- [ ] **Phase 3.1: Phase 3 Verification Closure** *(INSERTED)* — Write VERIFICATION.md for Phase 3 with requirements_completed frontmatter; patch SUMMARY.md to satisfy the 3-source certification gate for INGR-01..04 and TLS-03
+- [ ] **Phase 4: cert-manager CR Templates** — ClusterIssuer and Certificate templates for letsencrypt and selfsigned modes; cert-manager pre-install step in integration-test.yml; add cert-manager.io/cluster-issuer annotation to Ingress for letsencrypt mode
 - [ ] **Phase 5: CI Validation Extension** — Three TLS CI values files and six new lint/template steps in test.yml
 
 ## Phase Details
@@ -73,12 +74,25 @@ Plans:
 
 ---
 
+### Phase 3.1: Phase 3 Verification Closure *(INSERTED)*
+**Goal**: The formal verification artifacts for Phase 3 exist and are correctly populated — VERIFICATION.md confirms INGR-01..04 and TLS-03 are satisfied, and SUMMARY.md carries the requirements_completed frontmatter field needed by the 3-source certification gate.
+**Depends on**: Phase 3 (implementation already complete)
+**Requirements**: INGR-01, INGR-02, INGR-03, INGR-04, TLS-03
+**Gap Closure**: Closes INGR-01..04 and TLS-03 requirement gaps from v1.1 audit
+**Success Criteria** (what must be TRUE):
+  1. `phases/03-values-and-ingress-refactor/VERIFICATION.md` exists with `requirements_completed: [INGR-01, INGR-02, INGR-03, INGR-04, TLS-03]` and `status: verified`
+  2. `03-01-SUMMARY.md` frontmatter contains `requirements_completed` field listing the same five requirement IDs
+  3. The 3-source cross-reference for INGR-01..04 and TLS-03 shows all three sources satisfied (VERIFICATION.md ✓, SUMMARY frontmatter ✓, REQUIREMENTS.md checkbox ✓)
+**Plans**: TBD
+
+---
+
 ### Phase 4: cert-manager CR Templates
 **Goal**: The chart renders ClusterIssuer and Certificate resources for letsencrypt and selfsigned modes, all cert-manager resources use post-install hook annotations to avoid webhook timing races, and the integration test workflow installs cert-manager before the clay chart.
 **Depends on**: Phase 3
 **Requirements**: TLS-01, TLS-02, CI-06
 **Success Criteria** (what must be TRUE):
-  1. `helm template chart/clay --set ingress.enabled=true --set ingress.host=shop.example.com --set ingress.tls.mode=letsencrypt --set ingress.tls.acme.email=admin@example.com` renders a ClusterIssuer (ACME HTTP-01, staging endpoint) and a Certificate CR referencing it — both carry `helm.sh/hook: post-install,post-upgrade` annotations
+  1. `helm template chart/clay --set ingress.enabled=true --set ingress.host=shop.example.com --set ingress.tls.mode=letsencrypt --set ingress.tls.acme.email=admin@example.com` renders a ClusterIssuer (ACME HTTP-01, staging endpoint) and a Certificate CR referencing it — both carry `helm.sh/hook: post-install,post-upgrade` annotations — and the Ingress resource carries a `cert-manager.io/cluster-issuer` annotation referencing the letsencrypt ClusterIssuer
   2. `helm template chart/clay --set ingress.enabled=true --set ingress.host=shop.example.com --set ingress.tls.mode=selfsigned` renders a SelfSigned ClusterIssuer and a Certificate CR referencing a separate CA ClusterIssuer (two-step CA bootstrap) — no ACME resources present
   3. `helm template chart/clay --set ingress.enabled=true --set ingress.host=shop.example.com --set ingress.tls.mode=custom --set ingress.tls.secretName=my-tls` renders zero ClusterIssuer and zero Certificate resources
   4. The TLS secret name referenced in the Ingress `tls.secretName` field and in the Certificate `spec.secretName` field are identical — both derived from the same `clay.tlsSecretName` helper
@@ -98,6 +112,7 @@ Plans:
   3. `helm lint chart/clay --values chart/clay/ci/tls-selfsigned-values.yaml` passes
   4. `helm lint chart/clay --values chart/clay/ci/tls-custom-values.yaml` passes
   5. `test.yml` contains six new steps (lint + template for each of the three TLS modes) and all six pass on a push without cluster access
+  6. `chart/tests/helm-template-test.sh` is invoked in `test.yml` — all 10 behavioral tests covering INGR-01..04 and TLS-03 pass in CI on every push
 **Plans**: TBD
 **UI hint**: no
 
@@ -106,12 +121,13 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
+Phases execute in numeric order: 1 → 2 → 3 → 3.1 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Go + Build | 3/3 | Complete    | 2026-04-13 |
 | 2. Helm + CI | 0/2 | Not started | - |
 | 3. Values and Ingress Refactor | 0/1 | Not started | - |
+| 3.1. Phase 3 Verification Closure (INSERTED) | 0/0 | Not started | - |
 | 4. cert-manager CR Templates | 0/0 | Not started | - |
 | 5. CI Validation Extension | 0/0 | Not started | - |
