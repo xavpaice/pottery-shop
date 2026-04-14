@@ -1,4 +1,8 @@
 # CI test values for external Postgres mode
+secrets:
+  ADMIN_PASS: "ci-test-only"
+  SESSION_SECRET: "ci-test-session-secret-not-for-production"
+
 postgres:
   managed: false
   cluster:
@@ -7,7 +11,7 @@ postgres:
       size: 1Gi
       storageClass: ""
   external:
-    dsn: "postgresql://user:pass@external-host:5432/clay"
+    dsn: "postgresql://clay-db.example.com:5432/clay"
 
 cloudnative-pg:
   enabled: false

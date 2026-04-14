@@ -41,8 +41,8 @@ config:
   ORDER_EMAIL: "xavpaice@gmail.com"
 
 secrets:
-  ADMIN_PASS: "changeme"
-  SESSION_SECRET: "change-this-to-a-random-string"
+  ADMIN_PASS: ""          # REQUIRED — must be set at deploy time
+  SESSION_SECRET: ""      # REQUIRED — must be set at deploy time
   SMTP_USER: ""
   SMTP_PASS: ""
 
@@ -91,7 +91,14 @@ postgres:
       size: 5Gi
       storageClass: ""
   external:
+    # SECURITY: never embed credentials in dsn — use a pre-created Kubernetes Secret
+    # and reference it via an ExternalSecret or sealed-secret instead.
     dsn: ""
+
+# -- Image used by the wait-for-postgres init-container (managed mode only).
+# Pin to a specific patch version to avoid mutable-tag supply-chain risk.
+waitForPostgres:
+  image: postgres:16.3-alpine3.20
 
 # -- CloudNative-PG operator subchart
 cloudnative-pg:
