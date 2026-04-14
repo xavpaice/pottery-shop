@@ -83,7 +83,10 @@ Plans:
   1. `phases/03-values-and-ingress-refactor/VERIFICATION.md` exists with `requirements_completed: [INGR-01, INGR-02, INGR-03, INGR-04, TLS-03]` and `status: verified`
   2. `03-01-SUMMARY.md` frontmatter contains `requirements_completed` field listing the same five requirement IDs
   3. The 3-source cross-reference for INGR-01..04 and TLS-03 shows all three sources satisfied (VERIFICATION.md ✓, SUMMARY frontmatter ✓, REQUIREMENTS.md checkbox ✓)
-**Plans**: TBD
+**Plans:** 1 plan
+
+Plans:
+- [ ] 03.1-01-PLAN.md — Create VERIFICATION.md, patch SUMMARY.md frontmatter, check REQUIREMENTS.md checkboxes
 
 ---
 
@@ -128,6 +131,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 3.1 → 4 → 5
 | 1. Go + Build | 3/3 | Complete    | 2026-04-13 |
 | 2. Helm + CI | 0/2 | Not started | - |
 | 3. Values and Ingress Refactor | 0/1 | Not started | - |
-| 3.1. Phase 3 Verification Closure (INSERTED) | 0/0 | Not started | - |
+| 3.1. Phase 3 Verification Closure (INSERTED) | 0/1 | Not started | - |
 | 4. cert-manager CR Templates | 0/0 | Not started | - |
 | 5. CI Validation Extension | 0/0 | Not started | - |
