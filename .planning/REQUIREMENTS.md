@@ -20,8 +20,8 @@
 
 ### CI
 
-- [ ] **CI-04**: `chart/clay/ci/` contains three TLS values files (`tls-letsencrypt-values.yaml`, `tls-selfsigned-values.yaml`, `tls-custom-values.yaml`) for lint/template validation
-- [ ] **CI-05**: `test.yml` Helm validation job extended with six steps (helm lint + helm template for each TLS mode)
+- [x] **CI-04**: `chart/clay/ci/` contains three TLS values files (`tls-letsencrypt-values.yaml`, `tls-selfsigned-values.yaml`, `tls-custom-values.yaml`) for lint/template validation
+- [x] **CI-05**: `test.yml` Helm validation job extended with six steps (helm lint + helm template for each TLS mode)
 - [ ] **CI-06**: `integration-test.yml` includes a cert-manager v1.20.2 pre-install step (mirrors existing CNPG pre-install pattern)
 
 ## Future Requirements
@@ -76,8 +76,8 @@
 | TLS-01 | Phase 4 | Pending |
 | TLS-02 | Phase 4 | Pending |
 | TLS-03 | Phase 3 | Satisfied |
-| CI-04 | Phase 5 | Pending |
-| CI-05 | Phase 5 | Pending |
+| CI-04 | Phase 5 | Satisfied |
+| CI-05 | Phase 5 | Satisfied |
 | CI-06 | Phase 4 | Pending |
 
 **Coverage:**
