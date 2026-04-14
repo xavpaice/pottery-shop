@@ -103,8 +103,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Create letsencrypt and selfsigned cert-manager template files, add Ingress cluster-issuer annotation
-- [ ] 04-02-PLAN.md — Add cert-manager pre-install to integration-test.yml, extend helm-template-test.sh with TLS-01/TLS-02 assertions
+- [x] 04-01-PLAN.md — Create letsencrypt and selfsigned cert-manager template files, add Ingress cluster-issuer annotation
+- [x] 04-02-PLAN.md — Add cert-manager pre-install to integration-test.yml, extend helm-template-test.sh with TLS-01/TLS-02 assertions
 
 ---
 
