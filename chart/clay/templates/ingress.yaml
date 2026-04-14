@@ -12,6 +12,7 @@ metadata:
     {{- end }}
     {{- if eq .Values.ingress.tls.mode "letsencrypt" }}
     acme.cert-manager.io/http01-edit-in-place: "true"
+    cert-manager.io/cluster-issuer: {{ include "clay.fullname" . }}-letsencrypt
     {{- end }}
 spec:
   {{- if .Values.ingress.className }}
