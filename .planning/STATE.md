@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.1
-milestone_name: TLS
+milestone_name: milestone
 status: planning
-stopped_at: Roadmap created — ready to plan Phase 3
-last_updated: "2026-04-14T00:00:00.000Z"
-last_activity: 2026-04-14
+stopped_at: Phase 3 context gathered (discuss mode)
+last_updated: "2026-04-14T04:43:43.406Z"
+last_activity: 2026-04-14 — Roadmap created for v1.1 TLS milestone
 progress:
-  total_phases: 3
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_phases: 5
+  completed_phases: 2
+  total_plans: 5
+  completed_plans: 5
+  percent: 100
 ---
 
 # Project State
@@ -49,12 +49,14 @@ Progress: [░░░░░░░░░░] 0%
 Decisions are logged in PROJECT.md Key Decisions table.
 
 Prior milestone decisions:
+
 - pgx over lib/pq — pure Go, no CGO, actively maintained ✓
 - CNPG as subchart — one `helm install` gets everything ✓
 - External PG via DSN string — simplest interface ✓
 - pg_isready init container — timing mitigation for CNPG secret race ✓
 
 v1.1 TLS decisions (from research):
+
 - cert-manager as pre-install step, not subchart — official docs prohibit subchart embedding for cluster-scoped operators; mirrors CNPG pattern
 - Staging ACME endpoint default — prevents burning Let's Encrypt production rate limits during dev/testing
 - selfsigned mode uses two-step CA bootstrap — SelfSigned ClusterIssuer issues CA cert; CA ClusterIssuer issues app cert (avoids untrusted end-entity cert)
@@ -72,6 +74,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-14
-Stopped at: Roadmap created for v1.1 TLS milestone (Phases 3–5)
+Last session: 2026-04-14T04:43:43.401Z
+Stopped at: Phase 3 context gathered (discuss mode)
 Resume: `/gsd-plan-phase 3`
