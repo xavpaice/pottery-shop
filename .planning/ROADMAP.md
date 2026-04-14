@@ -46,8 +46,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Helm chart wiring: CNPG subchart dependency, values.yaml postgres block, Cluster CRD template, deployment.yaml updates (strategy, init container, DATABASE_URL injection), DB_PATH removal
-- [ ] 02-02-PLAN.md — CI pipeline: remove gcc from test job, add go vet, extend helm-lint job with dependency resolution and dual-mode lint+template validation
+- [x] 02-01-PLAN.md — Helm chart wiring: CNPG subchart dependency, values.yaml postgres block, Cluster CRD template, deployment.yaml updates (strategy, init container, DATABASE_URL injection), DB_PATH removal
+- [x] 02-02-PLAN.md — CI pipeline: remove gcc from test job, add go vet, extend helm-lint job with dependency resolution and dual-mode lint+template validation
 
 ---
 
