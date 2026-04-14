@@ -7,8 +7,12 @@ metadata:
   labels:
     {{- include "clay.labels" . | nindent 4 }}
   annotations:
+    {{- if eq .Values.ingress.className "traefik" }}
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    {{- end }}
+    {{- if eq .Values.ingress.tls.mode "letsencrypt" }}
     acme.cert-manager.io/http01-edit-in-place: "true"
+    {{- end }}
 spec:
   {{- if .Values.ingress.className }}
   ingressClassName: {{ .Values.ingress.className }}
