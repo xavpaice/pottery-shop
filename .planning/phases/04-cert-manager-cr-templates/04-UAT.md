@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 04-cert-manager-cr-templates
 source: [04-01-SUMMARY.md, 04-02-SUMMARY.md]
 started: 2026-04-14T00:00:00Z
@@ -54,7 +54,14 @@ blocked: 0
   reason: "User reported: Error: execution error at (clay/templates/ingress.yaml:2:4): ingress.tls.mode must be set (letsencrypt|selfsigned|custom)"
   severity: major
   test: 5
-  root_cause: ""
-  artifacts: []
-  missing: []
+  root_cause: "clay.validateIngress in _helpers.tpl unconditionally requires ingress.tls.mode to be non-empty whenever ingress is enabled, but the TLS block in ingress.yaml was updated (WR-02) to make TLS optional via an if-guard. The validation was not updated to match."
+  artifacts:
+    - path: "chart/clay/templates/_helpers.tpl:71-73"
+      issue: "unconditional fail if tls.mode is blank"
+    - path: "chart/clay/templates/ingress.yaml:2"
+      issue: "calls validateIngress unconditionally when ingress.enabled=true"
+    - path: "chart/clay/values.yaml:46"
+      issue: "tls.mode defaults to empty string"
+  missing:
+    - "Make tls.mode validation conditional — only enforce when a mode is actually set, or remove it and let the if-guard in ingress.yaml be sufficient"
   debug_session: ""
