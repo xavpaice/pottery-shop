@@ -35,6 +35,13 @@ The app runs reliably on Postgres with zero SQLite anywhere — CNPG manages the
 
 ### Active
 
+- [ ] Expose the app over HTTPS via Kubernetes Ingress with TLS termination
+- [ ] cert-manager installed as a Helm subchart dependency
+- [ ] Three TLS modes configurable in values.yaml: letsencrypt, selfsigned, custom
+- [ ] ClusterIssuer for Let's Encrypt HTTP-01 ACME (default mode)
+- [ ] ingress.host value drives Ingress hostname and Certificate resource
+- [ ] CI validation extended for all three TLS modes
+
 ### Out of Scope
 
 - SQLite as a local-dev fallback — full replacement, Postgres everywhere
@@ -69,6 +76,17 @@ The app runs reliably on Postgres with zero SQLite anywhere — CNPG manages the
 | Default 1 CNPG instance | Right for hobby/staging; HA (3) configurable via values.yaml | ✓ Implemented — Phase 2 |
 | pg_isready init container | Timing mitigation — prevents race between app and CNPG cluster ready | ✓ Implemented — Phase 2 |
 
+## Current Milestone: v1.1 TLS
+
+**Goal:** Expose the pottery shop over HTTPS via a Kubernetes Ingress with automated TLS certificate management.
+
+**Target features:**
+- cert-manager as Helm subchart (condition-gated, same pattern as CNPG)
+- Kubernetes Ingress resource with Traefik annotations
+- Three TLS modes via values.yaml: `letsencrypt` (HTTP-01, default), `selfsigned`, `custom` (BYO Secret)
+- `ingress.host` drives Ingress hostname and Certificate resource
+- CI Helm validation extended to cover all three TLS modes
+
 ## Evolution
 
 This document evolves at phase transitions and milestone boundaries.
@@ -87,4 +105,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-14 — Phase 2 complete (Helm + CI: CNPG subchart, dual-mode DATABASE_URL injection, pg_isready init container, CI pipeline CGO cleanup + dual-mode Helm validation)*
+*Last updated: 2026-04-14 — Milestone v1.1 TLS started (Ingress HTTPS, cert-manager subchart, three TLS modes, Traefik, HTTP-01 ACME)*
