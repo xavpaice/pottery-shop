@@ -69,7 +69,7 @@ Plans:
 **Plans:** 1 plan
 
 Plans:
-- [ ] 03-01-PLAN.md — Values.yaml ingress block replacement, clay.validateIngress + clay.tlsSecretName helpers, ingress.yaml template rewrite
+- [x] 03-01-PLAN.md — Values.yaml ingress block replacement, clay.validateIngress + clay.tlsSecretName helpers, ingress.yaml template rewrite
 
 ---
 
