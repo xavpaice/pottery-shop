@@ -34,7 +34,6 @@ config:
   PORT: "8080"
   BASE_URL: "https://clay.nz"
   ADMIN_USER: "admin"
-  DB_PATH: "/data/clay.db"
   UPLOAD_DIR: "/data/uploads"
   SMTP_HOST: ""
   SMTP_PORT: "587"
@@ -48,6 +47,7 @@ secrets:
   SMTP_PASS: ""
 
 persistence:
+  # Persistent storage for uploaded product images (uploads directory)
   enabled: true
   accessMode: ReadWriteOnce
   size: 5Gi
@@ -81,3 +81,18 @@ livenessProbe:
 nodeSelector: {}
 tolerations: []
 affinity: {}
+
+# -- Postgres configuration (managed via CNPG or external DSN)
+postgres:
+  managed: true
+  cluster:
+    instances: 1
+    storage:
+      size: 5Gi
+      storageClass: ""
+  external:
+    dsn: ""
+
+# -- CloudNative-PG operator subchart
+cloudnative-pg:
+  enabled: true
