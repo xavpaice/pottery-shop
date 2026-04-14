@@ -36,10 +36,15 @@ tidy:
 
 ## helm-lint: lint the Helm chart
 helm-lint:
-	helm lint chart/clay/
+	helm lint chart/clay/ -f chart/clay/ci/managed-values.yaml
+	helm lint chart/clay/ -f chart/clay/ci/external-values.yaml
+
+## helm-test: run helm template behavioral tests (Phase 3 validation)
+helm-test:
+	chart/tests/helm-template-test.sh
 
 ## lint: run all linters
-lint: helm-lint
+lint: helm-lint helm-test
 
 ## docker: build Docker image
 docker:
