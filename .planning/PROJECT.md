@@ -25,13 +25,15 @@ The app runs reliably on Postgres with zero SQLite anywhere — CNPG manages the
 - ✓ Update SQL dialect from SQLite to Postgres (types, syntax, sequences) — Validated in Phase 1: Go + Build
 - ✓ Docker build works without CGO (pure Go binary) — Validated in Phase 1: Go + Build
 
-### Active
+### Validated
 
-- [ ] Add CloudNative-PG operator as a Helm subchart dependency
-- [ ] Create a CNPG Cluster resource in the Helm chart (default: 1 instance)
-- [ ] Make CNPG instance count configurable in values.yaml for HA (e.g. 3 replicas)
-- [ ] Mount the CNPG-generated Secret into the app pod as DATABASE_URL env var
-- [ ] Support external Postgres via postgres.external.dsn in values.yaml — skips CNPG Cluster creation
+- ✓ Add CloudNative-PG operator as a Helm subchart dependency — Validated in Phase 2: Helm + CI
+- ✓ Create a CNPG Cluster resource in the Helm chart (default: 1 instance) — Validated in Phase 2: Helm + CI
+- ✓ Mount the CNPG-generated Secret into the app pod as DATABASE_URL env var — Validated in Phase 2: Helm + CI
+- ✓ Support external Postgres via postgres.external.dsn in values.yaml — Validated in Phase 2: Helm + CI
+- ✓ CI pipeline validates build, tests, and Helm rendering on every push — Validated in Phase 2: Helm + CI
+
+### Active
 
 ### Out of Scope
 
@@ -61,10 +63,11 @@ The app runs reliably on Postgres with zero SQLite anywhere — CNPG manages the
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | pgx over lib/pq | Pure Go (no CGO), better performance, actively maintained | ✓ Implemented — Phase 1 |
-| CNPG as subchart | Simpler install — one `helm install` gets everything | — Pending |
-| External PG via DSN string | Simplest interface; user sets one value, chart injects as env var | — Pending |
-| No SQLite fallback | Clean cut reduces complexity; local dev uses Postgres too | — Pending |
-| Default 1 CNPG instance | Right for hobby/staging; HA (3) configurable via values.yaml | — Pending |
+| CNPG as subchart | Simpler install — one `helm install` gets everything | ✓ Implemented — Phase 2 |
+| External PG via DSN string | Simplest interface; user sets one value, chart injects as env var | ✓ Implemented — Phase 2 |
+| No SQLite fallback | Clean cut reduces complexity; local dev uses Postgres too | ✓ Implemented — Phase 1 |
+| Default 1 CNPG instance | Right for hobby/staging; HA (3) configurable via values.yaml | ✓ Implemented — Phase 2 |
+| pg_isready init container | Timing mitigation — prevents race between app and CNPG cluster ready | ✓ Implemented — Phase 2 |
 
 ## Evolution
 
@@ -84,4 +87,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-13 — Phase 1 complete (Go + Build: driver swap, SQL dialect, CGO removal, integration tests)*
+*Last updated: 2026-04-14 — Phase 2 complete (Helm + CI: CNPG subchart, dual-mode DATABASE_URL injection, pg_isready init container, CI pipeline CGO cleanup + dual-mode Helm validation)*
