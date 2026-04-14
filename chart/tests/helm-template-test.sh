@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
-# Behavioral tests for chart/clay Helm template rendering (Phase 3: values-and-ingress-refactor)
-# Requirements: INGR-01, INGR-02, INGR-03, INGR-04, TLS-03, SC-5
+# Behavioral tests for chart/clay Helm template rendering (Phase 3: values-and-ingress-refactor, Phase 4: cert-manager-cr-templates)
+# Requirements: INGR-01, INGR-02, INGR-03, INGR-04, TLS-01, TLS-02, TLS-03, SC-5
 # Run from any directory; CHART_DIR is resolved relative to this script's location.
 set -u
 
@@ -40,6 +40,17 @@ CUSTOM_INGRESS="--set ingress.enabled=true \
   --set ingress.host=shop.example.com \
   --set ingress.tls.mode=custom \
   --set ingress.tls.secretName=my-tls"
+
+# Common --set flags for a fully valid letsencrypt-mode ingress render
+LETSENCRYPT_INGRESS="--set ingress.enabled=true \
+  --set ingress.host=shop.example.com \
+  --set ingress.tls.mode=letsencrypt \
+  --set ingress.tls.acme.email=admin@example.com"
+
+# Common --set flags for a fully valid selfsigned-mode ingress render
+SELFSIGNED_INGRESS="--set ingress.enabled=true \
+  --set ingress.host=shop.example.com \
+  --set ingress.tls.mode=selfsigned"
 
 # ---------------------------------------------------------------------------
 # G-01 / INGR-01: custom mode renders ingressClassName: traefik
@@ -184,6 +195,145 @@ if [ ${LINT_EXTERNAL_EXIT} -eq 0 ]; then
 else
     fail "G-08b SC-5: helm lint with external-values.yaml exits 0" \
          "helm lint exited ${LINT_EXTERNAL_EXIT}. Output: ${LINT_EXTERNAL}"
+fi
+
+# ---------------------------------------------------------------------------
+# G-09 / TLS-01: letsencrypt mode renders ClusterIssuer with ACME staging endpoint and hook annotations
+# ---------------------------------------------------------------------------
+OUTPUT_LE_09=$(${HELM} template release-test "${CHART_DIR}" \
+  ${REQUIRED} \
+  ${LETSENCRYPT_INGRESS} 2>&1)
+
+if echo "${OUTPUT_LE_09}" | grep -q "^kind: ClusterIssuer"; then
+    pass "G-09a TLS-01: letsencrypt mode renders ClusterIssuer resource"
+else
+    fail "G-09a TLS-01: letsencrypt mode renders ClusterIssuer resource" \
+         "Expected 'kind: ClusterIssuer' in letsencrypt mode output"
+fi
+
+if echo "${OUTPUT_LE_09}" | grep -q "acme-staging-v02.api.letsencrypt.org/directory"; then
+    pass "G-09b TLS-01: letsencrypt mode ClusterIssuer uses ACME staging endpoint"
+else
+    fail "G-09b TLS-01: letsencrypt mode ClusterIssuer uses ACME staging endpoint" \
+         "Expected 'acme-staging-v02.api.letsencrypt.org/directory' in output"
+fi
+
+if echo "${OUTPUT_LE_09}" | grep -q "helm.sh/hook: post-install,post-upgrade"; then
+    pass "G-09c TLS-01: letsencrypt mode ClusterIssuer carries helm.sh/hook: post-install,post-upgrade annotation"
+else
+    fail "G-09c TLS-01: letsencrypt mode ClusterIssuer carries helm.sh/hook: post-install,post-upgrade annotation" \
+         "Expected 'helm.sh/hook: post-install,post-upgrade' in letsencrypt mode output"
+fi
+
+# ---------------------------------------------------------------------------
+# G-10 / TLS-01: letsencrypt mode renders Certificate CR with hook annotations
+# ---------------------------------------------------------------------------
+OUTPUT_LE_10=$(${HELM} template release-test "${CHART_DIR}" \
+  ${REQUIRED} \
+  ${LETSENCRYPT_INGRESS} 2>&1)
+
+if echo "${OUTPUT_LE_10}" | grep -q "^kind: Certificate"; then
+    pass "G-10a TLS-01: letsencrypt mode renders Certificate resource"
+else
+    fail "G-10a TLS-01: letsencrypt mode renders Certificate resource" \
+         "Expected 'kind: Certificate' in letsencrypt mode output"
+fi
+
+if echo "${OUTPUT_LE_10}" | grep -q "helm.sh/hook: post-install,post-upgrade"; then
+    pass "G-10b TLS-01: letsencrypt mode Certificate carries helm.sh/hook: post-install,post-upgrade annotation"
+else
+    fail "G-10b TLS-01: letsencrypt mode Certificate carries helm.sh/hook: post-install,post-upgrade annotation" \
+         "Expected 'helm.sh/hook: post-install,post-upgrade' in letsencrypt Certificate output"
+fi
+
+# ---------------------------------------------------------------------------
+# G-11 / TLS-01: letsencrypt mode Ingress carries cert-manager.io/cluster-issuer annotation
+# ---------------------------------------------------------------------------
+OUTPUT_LE_11=$(${HELM} template release-test "${CHART_DIR}" \
+  ${REQUIRED} \
+  ${LETSENCRYPT_INGRESS} 2>&1)
+
+if echo "${OUTPUT_LE_11}" | grep -q "cert-manager.io/cluster-issuer: release-test-clay-letsencrypt"; then
+    pass "G-11 TLS-01: letsencrypt mode Ingress carries cert-manager.io/cluster-issuer annotation with release-derived name"
+else
+    fail "G-11 TLS-01: letsencrypt mode Ingress carries cert-manager.io/cluster-issuer annotation with release-derived name" \
+         "Expected 'cert-manager.io/cluster-issuer: release-test-clay-letsencrypt'. Got: $(echo "${OUTPUT_LE_11}" | grep "cluster-issuer" || echo '<not found>')"
+fi
+
+# ---------------------------------------------------------------------------
+# G-12 / TLS-02: selfsigned mode renders two ClusterIssuers and two Certificates (four-resource CA bootstrap)
+# ---------------------------------------------------------------------------
+OUTPUT_SS_12=$(${HELM} template release-test "${CHART_DIR}" \
+  ${REQUIRED} \
+  ${SELFSIGNED_INGRESS} 2>&1)
+
+CI_COUNT=$(echo "${OUTPUT_SS_12}" | grep -c "^kind: ClusterIssuer" || true)
+CERT_COUNT=$(echo "${OUTPUT_SS_12}" | grep -c "^kind: Certificate" || true)
+
+if [ "${CI_COUNT}" -eq 2 ]; then
+    pass "G-12a TLS-02: selfsigned mode renders exactly 2 ClusterIssuer resources (got ${CI_COUNT})"
+else
+    fail "G-12a TLS-02: selfsigned mode renders exactly 2 ClusterIssuer resources" \
+         "Expected 2 ClusterIssuer resources, got ${CI_COUNT}"
+fi
+
+if [ "${CERT_COUNT}" -eq 2 ]; then
+    pass "G-12b TLS-02: selfsigned mode renders exactly 2 Certificate resources (got ${CERT_COUNT})"
+else
+    fail "G-12b TLS-02: selfsigned mode renders exactly 2 Certificate resources" \
+         "Expected 2 Certificate resources, got ${CERT_COUNT}"
+fi
+
+if echo "${OUTPUT_SS_12}" | grep -q "selfSigned: {}"; then
+    pass "G-12c TLS-02: selfsigned mode renders SelfSigned root ClusterIssuer (selfSigned: {})"
+else
+    fail "G-12c TLS-02: selfsigned mode renders SelfSigned root ClusterIssuer (selfSigned: {})" \
+         "Expected 'selfSigned: {}' in selfsigned mode output"
+fi
+
+if echo "${OUTPUT_SS_12}" | grep -q "isCA: true"; then
+    pass "G-12d TLS-02: selfsigned mode renders CA Certificate with isCA: true"
+else
+    fail "G-12d TLS-02: selfsigned mode renders CA Certificate with isCA: true" \
+         "Expected 'isCA: true' in selfsigned mode output"
+fi
+
+# ---------------------------------------------------------------------------
+# G-13 / TLS-02: selfsigned mode renders zero ACME resources
+# ---------------------------------------------------------------------------
+OUTPUT_SS_13=$(${HELM} template release-test "${CHART_DIR}" \
+  ${REQUIRED} \
+  ${SELFSIGNED_INGRESS} 2>&1)
+
+if echo "${OUTPUT_SS_13}" | grep -q "acme-staging-v02"; then
+    fail "G-13 TLS-02: selfsigned mode renders no ACME staging URL" \
+         "Found 'acme-staging-v02' in selfsigned mode output — should not appear"
+else
+    pass "G-13 TLS-02: selfsigned mode renders no ACME staging URL (acme-staging-v02 absent)"
+fi
+
+# ---------------------------------------------------------------------------
+# G-14 / TLS-01+TLS-02: custom mode renders zero ClusterIssuer and zero Certificate resources
+# ---------------------------------------------------------------------------
+OUTPUT_CU_14=$(${HELM} template release-test "${CHART_DIR}" \
+  ${REQUIRED} \
+  ${CUSTOM_INGRESS} 2>&1)
+
+CI_CUSTOM_COUNT=$(echo "${OUTPUT_CU_14}" | grep -c "^kind: ClusterIssuer" || true)
+CERT_CUSTOM_COUNT=$(echo "${OUTPUT_CU_14}" | grep -c "^kind: Certificate" || true)
+
+if [ "${CI_CUSTOM_COUNT}" -eq 0 ]; then
+    pass "G-14a TLS-01+TLS-02: custom mode renders zero ClusterIssuer resources (got ${CI_CUSTOM_COUNT})"
+else
+    fail "G-14a TLS-01+TLS-02: custom mode renders zero ClusterIssuer resources" \
+         "Expected 0 ClusterIssuer resources, got ${CI_CUSTOM_COUNT}"
+fi
+
+if [ "${CERT_CUSTOM_COUNT}" -eq 0 ]; then
+    pass "G-14b TLS-01+TLS-02: custom mode renders zero Certificate resources (got ${CERT_CUSTOM_COUNT})"
+else
+    fail "G-14b TLS-01+TLS-02: custom mode renders zero Certificate resources" \
+         "Expected 0 Certificate resources, got ${CERT_CUSTOM_COUNT}"
 fi
 
 # ---------------------------------------------------------------------------
