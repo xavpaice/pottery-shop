@@ -1,312 +1,249 @@
-# Stack Research: CNPG + pgx Migration
+# Stack Research: TLS/Ingress Milestone (v1.1)
 
-**Researched:** 2026-04-13
-**Overall confidence:** HIGH (all findings verified against official sources)
-
----
-
-## Go Database Driver
-
-### pgx v5 — Confirmed Choice
-
-**Latest stable version:** v5.9.1 (released 2026-03-22)
-**Import path:** `github.com/jackc/pgx/v5`
-
-pgx is a pure Go driver — no CGO, no C dependencies. This is the primary reason to choose it over `lib/pq` for this migration.
-
-**Version history (recent):**
-- v5.9.1 — 2026-03-22 (latest stable)
-- v5.9.0 — 2026-03-21
-- v5.8.0 — 2025-12-26
-- v5.7.6 — 2025-09-08
-
-**Security note (LOW severity, LOW urgency for this app):**
-Two unpatched memory-safety vulnerabilities exist in `pgproto3` as of 2026-04-07: GO-2026-4771 (CVE-2026-33815) and GO-2026-4772 (CVE-2026-33816). Both affect `Backend.Receive` — the server-side wire protocol handler. This code path is only exercised when pgx acts as a Postgres server (unusual), not as a client. A standard Go app connecting *to* Postgres is not exposed to these. Use v5.9.1 anyway; monitor for a patch release.
-
-Source: https://pkg.go.dev/vuln/GO-2026-4771, https://pkg.go.dev/vuln/GO-2026-4772
-
-### Native pgx API vs database/sql — Use Native
-
-**Recommendation: native pgx API via `pgxpool`** (not `database/sql`)
-
-Rationale:
-- This app is PostgreSQL-only — no multi-database portability needed
-- Native API uses the binary wire protocol, which is faster
-- `pgxpool` is built-in and production-ready; no extra dependency
-- `database/sql` adds an abstraction layer with no benefit here
-- `lib/pq` is in maintenance mode; pgx is the actively maintained successor
-
-Use `database/sql` only if you add a library that requires it (e.g., sqlx, GORM). You can always drop to the native pgx connection from a `database/sql` driver via a type assertion if needed.
-
-**Key imports:**
-
-```go
-// Native pgx with connection pool (recommended)
-import (
-    "github.com/jackc/pgx/v5"
-    "github.com/jackc/pgx/v5/pgxpool"
-)
-
-// database/sql compatibility (only if required)
-import "github.com/jackc/pgx/v5/stdlib"
-```
-
-**Connection pool setup:**
-
-```go
-pool, err := pgxpool.New(ctx, os.Getenv("DATABASE_URL"))
-if err != nil {
-    log.Fatal(err)
-}
-defer pool.Close()
-```
-
-The connection string format pgxpool accepts:
-```
-postgres://app:password@cluster-rw.namespace:5432/app?sslmode=require
-```
-
-**Query pattern:**
-
-```go
-var name string
-err = pool.QueryRow(ctx, "SELECT name FROM products WHERE id=$1", id).Scan(&name)
-```
-
-Sources: https://pkg.go.dev/github.com/jackc/pgx/v5, https://pkg.go.dev/github.com/jackc/pgx/v5/pgxpool
+**Researched:** 2026-04-14
+**Overall confidence:** HIGH (all version pins and annotation keys verified against official sources)
+**Scope:** New additions only. The existing Go, pgx, CNPG, and Docker stack from the Postgres milestone are not repeated here.
 
 ---
 
-## CloudNative-PG Operator
+## cert-manager
 
-### Versions
+### Version
+
+**Latest stable:** v1.20.2 (released 2026-04-11)
+**Currently supported:** v1.20.x and v1.19.x (each release supported until 2 subsequent releases; approximately 4-month windows)
 
 | Component | Version | Notes |
 |-----------|---------|-------|
-| CNPG operator | 1.29.0 | Latest stable as of April 2026 |
-| Helm chart | 0.28.0 | chart version — `appVersion: 1.29.0` |
-| Kubernetes minimum | 1.29.0 | Required by chart |
+| cert-manager | v1.20.2 | Latest stable as of April 2026 |
+| Helm chart | v1.20.2 | Chart version matches appVersion for cert-manager |
 
-1.29.0 is the latest stable operator release (announced on postgresql.org). 1.28.x EOL is June 30, 2026. 1.27.4 was the final 1.27.x release.
+Source: https://cert-manager.io/docs/releases/
 
-### Helm Chart
+### Helm Chart Coordinates
 
-**Repository URL:** `https://cloudnative-pg.github.io/charts`
-**Chart name:** `cloudnative-pg`
+**Recommended repository:** `https://charts.jetstack.io` (legacy HTTPS, updated hours after OCI)
+**OCI alternative:** `oci://quay.io/jetstack/charts` — authoritative source, published immediately on release
 
-**Chart.yaml dependency block:**
+Use the HTTPS repository for Chart.yaml subchart dependencies. There is a known Helm issue where the `v`-prefixed version tag in OCI registries (`v1.20.2`) breaks `helm dependency update` in some Helm versions because Helm normalizes the SemVer and cannot match the tag. The HTTPS repository resolves this reliably.
+
+Source: https://github.com/helm/helm/issues/11107 (v-prefix OCI tag issue)
+
+### Chart.yaml Dependency Entry
+
+Mirror the existing CNPG pattern exactly:
 
 ```yaml
 dependencies:
-  - name: cloudnative-pg
-    repository: https://cloudnative-pg.github.io/charts
-    version: "0.28.0"
-    condition: cnpg.enabled
+  - name: cert-manager
+    repository: https://charts.jetstack.io
+    version: "v1.20.2"
+    condition: certManager.enabled
 ```
 
-The `condition` field is essential — it lets `values.yaml` skip installing the operator when `postgres.external.dsn` is set and CNPG is not needed (though typically the operator is always installed separately from the Cluster resource).
+The `condition` field (`certManager.enabled`) lets operators skip installing cert-manager when it is already present in the cluster — same rationale as the existing `cnpg.enabled` condition on the CNPG subchart.
 
-**To fetch the dependency after editing Chart.yaml:**
-
+**Fetch after editing Chart.yaml:**
 ```bash
 helm dependency update chart/clay/
 ```
 
-Sources: https://cloudnative-pg.io/charts/, https://github.com/cloudnative-pg/charts
+### Required values.yaml Entry
+
+The parent chart's `values.yaml` must pass `crds.enabled: true` to the subchart, or CRDs will not be installed and all cert-manager CRs (Certificate, ClusterIssuer) will be rejected.
+
+```yaml
+certManager:
+  enabled: true
+  crds:
+    enabled: true
+    # keep: true prevents CRD deletion on helm uninstall (optional but recommended)
+    keep: true
+```
+
+**Key note:** `installCRDs` (the old flag) is deprecated as of v1.15+. Use `crds.enabled` instead.
+
+Source: https://cert-manager.io/docs/installation/helm/
 
 ---
 
-## CNPG Cluster Resource
+## Kubernetes Ingress Resource (Traefik-specific)
 
-The `Cluster` CRD is in `apiVersion: postgresql.cnpg.io/v1`. Key spec fields:
+### ingressClassName
+
+k3s ships Traefik as the default ingress controller. The correct `ingressClassName` value is `traefik`.
 
 ```yaml
-apiVersion: postgresql.cnpg.io/v1
-kind: Cluster
-metadata:
-  name: {{ .Release.Name }}-pg   # e.g. "pottery-shop-pg"
 spec:
-  instances: 1                   # configurable via values.yaml (3 for HA)
-  storage:
-    size: 1Gi                    # configurable via values.yaml
-  bootstrap:
-    initdb:
-      database: app              # the database name created on init
-      owner: app                 # the user that owns it
-      # No secret.name needed — CNPG generates credentials automatically
-  # superuserSecret is optional; omit to disable superuser access
+  ingressClassName: traefik
 ```
 
-**Configurable instances example in values.yaml:**
+The old annotation `kubernetes.io/ingress.class: traefik` is deprecated since Kubernetes 1.18 and should not be used in new resources.
+
+### Annotations for TLS with cert-manager
+
+Two annotation keys matter for the Ingress resource itself:
+
+| Annotation | Value | Purpose |
+|------------|-------|---------|
+| `cert-manager.io/cluster-issuer` | name of your ClusterIssuer | Triggers ingress-shim to auto-create a Certificate resource |
+| `traefik.ingress.kubernetes.io/router.entrypoints` | `websecure` | Tells Traefik to route this Ingress on the HTTPS entrypoint (port 443) |
+
+The `cert-manager.io/cluster-issuer` annotation is preferred over `cert-manager.io/issuer` because ClusterIssuers are cluster-scoped — they work regardless of which namespace the Ingress lives in. An Issuer would have to exist in the same namespace as the Ingress.
+
+When cert-manager's ingress-shim sees the `cert-manager.io/cluster-issuer` annotation on an Ingress that also has a `tls` block, it automatically creates a Certificate CR with `spec.secretName` matching the `tls.secretName`. You do not need to create the Certificate resource manually for Let's Encrypt or self-signed modes.
+
+Source: https://cert-manager.io/docs/usage/ingress/
+
+### Complete Ingress Annotation Block (letsencrypt mode)
 
 ```yaml
-postgres:
-  instances: 1        # set to 3 for HA
-  storage: 1Gi
-  external:
-    dsn: ""           # if set, skip Cluster creation entirely
+annotations:
+  traefik.ingress.kubernetes.io/router.entrypoints: websecure
+  cert-manager.io/cluster-issuer: letsencrypt-prod
 ```
 
-**Helm template conditional (skip Cluster if external DSN is set):**
+### TLS block in Ingress spec
 
 ```yaml
-{{- if not .Values.postgres.external.dsn }}
-apiVersion: postgresql.cnpg.io/v1
-kind: Cluster
-...
-{{- end }}
+tls:
+  - hosts:
+      - {{ .Values.ingress.host }}
+    secretName: {{ include "clay.fullname" . }}-tls
 ```
 
-Sources: https://cloudnative-pg.io/docs/1.25/applications/, https://github.com/cloudnative-pg/cloudnative-pg/blob/main/docs/src/samples/cluster-example-full.yaml
+The `secretName` is where cert-manager will store the provisioned TLS certificate. It is created in the same namespace as the Ingress.
 
 ---
 
-## CNPG Credentials Secret
+## ClusterIssuer Resources (Three TLS Modes)
 
-### Naming Convention
-
-CNPG automatically generates two Kubernetes Secrets per Cluster:
-
-| Secret name | Purpose |
-|-------------|---------|
-| `<cluster-name>-app` | Application credentials — use this |
-| `<cluster-name>-superuser` | DBA/admin credentials — optional, can disable |
-
-For a cluster named `pottery-shop-pg`, the app secret is `pottery-shop-pg-app`.
-
-### Keys in the App Secret
-
-| Key | Contents |
-|-----|----------|
-| `username` | `app` (the Postgres user) |
-| `password` | generated password |
-| `host` | RW service hostname (e.g. `pottery-shop-pg-rw.default`) |
-| `port` | `5432` |
-| `dbname` | `app` |
-| `.pgpass` | pgpass-format connection string |
-| `uri` | Full libpq URI — **use this as DATABASE_URL** |
-| `jdbc-uri` | JDBC format (irrelevant for Go) |
-| `fqdn-uri` | FQDN variant of `uri` |
-| `fqdn-jdbc-uri` | FQDN variant of `jdbc-uri` |
-
-**URI format example:**
-```
-postgresql://app:generated-password@pottery-shop-pg-rw.default:5432/app
-```
-
-### Using the Secret in a Pod
-
-Reference the `uri` key directly as `DATABASE_URL`:
+### Mode 1: letsencrypt (HTTP-01 ACME) — Default
 
 ```yaml
-env:
-  - name: DATABASE_URL
-    valueFrom:
-      secretKeyRef:
-        name: {{ .Release.Name }}-pg-app
-        key: uri
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ include "clay.fullname" . }}-letsencrypt
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: {{ .Values.tls.letsencrypt.email }}
+    privateKeySecretRef:
+      name: {{ include "clay.fullname" . }}-letsencrypt-account-key
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: traefik
 ```
 
-When `postgres.external.dsn` is set, skip the secretKeyRef and inject the DSN directly:
+**Traefik / k3s HTTP-01 note:** The solver must use `ingressClassName: traefik` (not the legacy `class: traefik`). cert-manager creates a temporary Ingress to serve the ACME challenge on `/.well-known/acme-challenge/`. With `ingressClassName: traefik`, Traefik picks it up correctly. Using the legacy `class` field caused regressions after cert-manager v1.5.4 because cert-manager stopped setting the `kubernetes.io/ingress.class` annotation.
+
+**Let's Encrypt staging for testing:** Use `https://acme-staging-v02.api.letsencrypt.org/directory` during CI/integration testing to avoid rate limits. Switch to prod for real deployments.
+
+Source: https://cert-manager.io/docs/configuration/acme/http01/
+
+### Mode 2: selfsigned
 
 ```yaml
-{{- if .Values.postgres.external.dsn }}
-env:
-  - name: DATABASE_URL
-    value: {{ .Values.postgres.external.dsn | quote }}
-{{- else }}
-env:
-  - name: DATABASE_URL
-    valueFrom:
-      secretKeyRef:
-        name: {{ .Release.Name }}-pg-app
-        key: uri
-{{- end }}
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ include "clay.fullname" . }}-selfsigned
+spec:
+  selfSigned: {}
 ```
 
-Sources: https://cloudnative-pg.io/docs/1.25/applications/, https://www.gabrielebartolini.it/articles/2024/03/cloudnativepg-recipe-2-inspecting-default-resources-in-a-cloudnativepg-cluster/
+Self-signed is the simplest issuer — no dependencies, no external connectivity. Suitable for internal/staging environments where browser trust warnings are acceptable.
+
+The Ingress annotation for this mode would be:
+```yaml
+cert-manager.io/cluster-issuer: {{ include "clay.fullname" . }}-selfsigned
+```
+
+Source: https://cert-manager.io/docs/configuration/selfsigned/
+
+### Mode 3: custom (BYO Secret)
+
+No ClusterIssuer or Certificate CR is needed. The user pre-creates a Kubernetes TLS Secret and the Ingress `tls.secretName` simply references it. cert-manager is not involved in this mode.
+
+The chart should skip creating any issuer or certificate resource when `tls.mode: custom` is set. The values.yaml would accept `tls.custom.secretName` to reference the user-provided Secret.
 
 ---
 
-## Docker Build
+## values.yaml Structure for TLS Modes
 
-### CGO situation
+Recommended new `tls` block in values.yaml:
 
-**Current:** `go-sqlite3` requires `CGO_ENABLED=1` and a C compiler (GCC/Clang) at build time plus sqlite-libs at runtime.
+```yaml
+tls:
+  # mode: letsencrypt | selfsigned | custom
+  mode: letsencrypt
 
-**After migration to pgx:** pgx is pure Go. `CGO_ENABLED=0` works out of the box.
+  letsencrypt:
+    # Email registered with Let's Encrypt for expiry notices
+    email: ""
 
-**Build change:**
-
-```dockerfile
-# Before (sqlite3):
-RUN CGO_ENABLED=1 go build -o /app ./...
-
-# After (pgx):
-RUN CGO_ENABLED=0 go build -o /app ./...
+  custom:
+    # Name of a pre-existing Kubernetes TLS Secret in the same namespace
+    secretName: ""
 ```
 
-### Multi-stage implications
+**Backward compatibility:** The existing `ingress.tls` block in values.yaml (currently hardcodes `clay-tls` as the secretName) should be superseded by the new `tls` block. Keep a single `ingress.host` value rather than the current `ingress.hosts[].host` list — the milestone description specifies `ingress.host` (singular) drives everything.
 
-With `CGO_ENABLED=0` the compiled binary is statically linked. This means:
-- No need for `sqlite-libs` in the runtime image
-- No need for GCC/Clang in the build stage (the `tonistiigi/xx` cross-compilation helper can be simplified or removed entirely)
-- The runtime image can be a minimal Alpine or even `scratch`
-- `ca-certificates` is still needed for TLS connections to Postgres
+**CI test values needed (three files):**
 
-**Dockerfile runtime stage — remove:**
-- `sqlite-libs` apk package
-- Any CGO-related build args or toolchain setup
-
-**Dockerfile runtime stage — keep:**
-- `ca-certificates` (TLS to Postgres requires it)
-
-**Makefile/CI change:** Remove or set `CGO_ENABLED=0`; remove `GCC_ENABLED` or similar flags if present.
-
-Source: https://github.com/jackc/pgx#readme (explicitly: "pgx is a pure Go driver and toolkit for PostgreSQL")
+| File | tls.mode | Purpose |
+|------|----------|---------|
+| `ci/tls-letsencrypt-values.yaml` | `letsencrypt` (staging server) | Validates ClusterIssuer + Certificate rendering |
+| `ci/tls-selfsigned-values.yaml` | `selfsigned` | Validates selfsigned issuer rendering |
+| `ci/tls-custom-values.yaml` | `custom` | Validates no issuer created, custom secret ref |
 
 ---
 
-## Recommendations
+## What NOT to Add
 
-### Definitive version pins
+| Item | Reason |
+|------|--------|
+| Traefik IngressRoute CRD | Requires Traefik CRDs, breaks portability. Standard `networking.k8s.io/v1 Ingress` works with Traefik and is simpler. |
+| trust-manager | cert-manager's optional companion for distributing CA bundles. Not needed for this app — only useful when you need to distribute a CA cert to pods for mTLS. |
+| Separate Certificate CR in templates | The ingress-shim auto-creates it from the Ingress annotation. Manual Certificate CR only needed for non-Ingress use cases or if you need fine-grained control over renewal timing. |
+| DNS-01 ACME solver | Requires DNS provider credentials and is more complex to configure. HTTP-01 is sufficient and simpler when the cluster has public ingress. |
+| cert-manager as a cluster-level pre-install | The milestone spec wants subchart (same install pattern as CNPG). Documented warning against subchart embedding is a recommendation for public chart authors, not a hard constraint for private umbrella charts. |
 
-| Component | Version | Confidence |
-|-----------|---------|------------|
-| pgx | v5.9.1 | HIGH — verified on pkg.go.dev |
-| CNPG operator | 1.29.0 | HIGH — verified on cloudnative-pg.io and postgresql.org |
-| CNPG Helm chart | 0.28.0 | HIGH — verified in GitHub Chart.yaml |
+---
 
-### Key choices
+## Integration with Existing Chart Patterns
 
-1. **Use pgx native API, not database/sql.** This app is Postgres-only. Native API is faster, simpler, and the pool (`pgxpool`) is included.
+The CNPG subchart pattern (from Phase 2) is the template to follow:
 
-2. **Use `pgxpool.New()` at application startup.** One pool, injected into handlers. Close it on shutdown. Do not open per-request connections.
+| Concern | CNPG pattern | cert-manager equivalent |
+|---------|-------------|------------------------|
+| Chart.yaml dependency | `condition: cnpg.enabled` | `condition: certManager.enabled` |
+| values.yaml enable key | `cnpg.enabled: true` | `certManager.enabled: true` |
+| CRD installation | N/A (operator installs via Helm Job) | `certManager.crds.enabled: true` |
+| Conditional CR creation | `{{- if .Values.postgres.managed }}` | `{{- if eq .Values.tls.mode "letsencrypt" }}` |
+| values.yaml subchart passthrough | `cnpg: {}` block | `certManager: {}` block |
 
-3. **Read `DATABASE_URL` from environment.** The CNPG `uri` secret key is a fully-formed libpq URI — pgxpool accepts it directly with no parsing needed.
+The key difference: cert-manager's CRDs are installed via the Helm chart itself (controlled by `crds.enabled`), whereas CNPG's CRDs are bundled inside the operator image. This means `crds.enabled: true` is mandatory in the cert-manager values block.
 
-4. **Set `CGO_ENABLED=0` in Dockerfile.** Remove all CGO build infrastructure. Simplifies the build and eliminates the sqlite/CGO runtime dependency.
+---
 
-5. **Name the CNPG Cluster `{{ .Release.Name }}-pg`.** This produces a predictable secret name `{{ .Release.Name }}-pg-app` that the Helm template can reference without hardcoding.
+## Summary: Definitive Version Pins
 
-6. **Keep operator install separate from Cluster creation.** The CNPG operator (the subchart) is a cluster-level resource. The `Cluster` CR is namespace-scoped. Use `condition: cnpg.enabled` to allow installations where the operator is pre-installed.
+| Component | Version | Helm Repo | Confidence |
+|-----------|---------|-----------|------------|
+| cert-manager | v1.20.2 | https://charts.jetstack.io | HIGH — verified at cert-manager.io/docs/releases/ |
+| Ingress API | networking.k8s.io/v1 | built-in | HIGH — stable since Kubernetes 1.19 |
+| Let's Encrypt ACME v2 | n/a | https://acme-v02.api.letsencrypt.org | HIGH — current production endpoint |
 
-7. **SQL dialect changes required:** Replace `INTEGER PRIMARY KEY` with `SERIAL` or `GENERATED ALWAYS AS IDENTITY`. Replace SQLite date/time functions. Replace `?` placeholders with `$1, $2, ...`.
+## Sources
 
-### go.mod changes
-
-```bash
-# Remove:
-go get -u github.com/mattn/go-sqlite3  # then manually delete from go.mod
-
-# Add:
-go get github.com/jackc/pgx/v5@v5.9.1
-```
-
-**Resulting require block:**
-```
-require (
-    github.com/disintegration/imaging v1.6.2
-    github.com/jackc/pgx/v5 v5.9.1
-)
-```
+- cert-manager releases: https://cert-manager.io/docs/releases/
+- cert-manager Helm install: https://cert-manager.io/docs/installation/helm/
+- cert-manager Ingress annotations: https://cert-manager.io/docs/usage/ingress/
+- cert-manager HTTP-01 solver: https://cert-manager.io/docs/configuration/acme/http01/
+- cert-manager self-signed issuer: https://cert-manager.io/docs/configuration/selfsigned/
+- Traefik + cert-manager integration (v3.4 docs): https://doc.traefik.io/traefik/v3.4/user-guides/cert-manager/
+- Using cert-manager as subchart: https://skarlso.github.io/2024/07/02/using-cert-manager-as-a-subchart-with-helm/
+- Helm OCI v-prefix issue: https://github.com/helm/helm/issues/11107

@@ -1,287 +1,271 @@
-# Features Research: Helm + CNPG Patterns
+# Feature Landscape: TLS/Ingress Milestone
 
-**Project:** pottery-shop clay chart
-**Researched:** 2026-04-13
-**Overall confidence:** HIGH (CNPG docs verified, Helm patterns from official docs)
+**Domain:** Helm-managed Kubernetes TLS with cert-manager + Traefik
+**Researched:** 2026-04-14
+**Overall confidence:** HIGH (cert-manager official docs, Traefik docs, verified patterns)
 
 ---
 
-## Values.yaml Structure
+## Context: Existing Chart Structure
 
-The canonical Helm pattern for dual-mode database configuration uses a top-level `postgres` block with a
-`mode` discriminator (or a nested `external` block whose presence implies external mode). The clearest
-approach for this chart is a boolean flag `postgres.managed` combined with an `external.dsn` field, because:
+The chart at `chart/clay/` already has:
+- `ingress.yaml` template with a standard `{{- if .Values.ingress.enabled }}` gate
+- `values.yaml` with an `ingress:` block that uses the nginx annotation and a raw TLS secret reference
+- CNPG as a Helm subchart via `Chart.yaml` dependency with a `condition:` field — this is the **established pattern** for optional operator subcharts in this chart
+- Two CI test values files in `chart/clay/ci/` (one per postgres mode)
 
-- Boolean flag is trivially evaluable in Helm `if` blocks
-- `external.dsn` being empty ("") is an unambiguous no-op, and explicitly set means external mode
-- Matches the Airflow chart convention of `postgresql.enabled: false` + `externalDatabase: {}` (widely
-  understood by operators)
+The TLS work extends the existing `ingress:` block and adds cert-manager as a second subchart following the same condition-gated dependency pattern already used for CNPG.
 
-Proposed structure to add to `values.yaml`:
+---
+
+## Table Stakes
+
+Features that must be present for the milestone to be complete. Missing any one makes the milestone fail.
+
+| Feature | Why Essential | Complexity | Notes |
+|---------|--------------|------------|-------|
+| `ingress.host` single field | Drives Ingress hostname, Certificate commonName, tls.hosts — one value, no duplication | Low | Replaces current `ingress.hosts[].host` array for this single-host app |
+| `ingress.tls.mode` discriminator | Controls which of three cert paths is active | Low | Values: `letsencrypt`, `selfsigned`, `custom` |
+| `ingressClassName: traefik` on Ingress | Required for Traefik to pick up the Ingress resource | Low | Current `ingress.className: ""` must default to `"traefik"` |
+| cert-manager subchart dependency | One `helm install` deploys cert-manager — same pattern as CNPG | Low | `condition: cert-manager.enabled` in `Chart.yaml` |
+| `crds.enabled: true` on cert-manager subchart | Without CRDs, Certificate/Issuer/ClusterIssuer resources don't exist | Low | `crds.enabled` is the current cert-manager flag (replaces deprecated `installCRDs`) |
+| `ClusterIssuer` for letsencrypt mode | Cluster-scoped issuer for HTTP-01 ACME, works across namespaces | Medium | Needs `acme.email` in values.yaml; creates two issuers (staging + prod) |
+| HTTP-01 solver with `ingressClassName: traefik` | cert-manager creates temporary Ingress via Traefik to serve ACME challenge token | Medium | The solver's `ingressClassName` must match the app's ingress class |
+| `cert-manager.io/cluster-issuer` annotation on Ingress | Triggers ingress-shim to auto-create Certificate resource | Low | Replaces manual Certificate resource creation |
+| `selfsigned` mode: SelfSigned ClusterIssuer | In-cluster self-signed certificate, no ACME required | Low | Browser shows untrusted warning — expected for dev/internal |
+| `custom` mode: reference existing Secret | User pre-creates `kubernetes.io/tls` Secret, chart just wires it to Ingress tls.secretName | Low | No issuer created; no cert-manager annotation on Ingress |
+| CI values files for all three TLS modes | Chart validation must cover all code paths | Low | Three new files in `chart/clay/ci/`: `tls-letsencrypt.yaml`, `tls-selfsigned.yaml`, `tls-custom.yaml` |
+| `traefik.ingress.kubernetes.io/router.entrypoints: websecure` annotation | Routes HTTPS traffic through Traefik's 443 entrypoint | Low | Required for TLS termination at Traefik |
+
+---
+
+## Differentiators
+
+Features that make the operator experience noticeably better. Not required for correctness, but worth the low build cost.
+
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| Staging issuer default for letsencrypt mode | Prevents burning Let's Encrypt production rate limits during dev/test | Low | Default to staging; operator sets `ingress.tls.letsencrypt.production: true` to flip |
+| `cert-manager.enabled` auto-derived from `ingress.tls.mode` | Operators don't need to set two independent flags that must always match | Medium | `{{- if ne .Values.ingress.tls.mode "custom" }}` — only install cert-manager when needed |
+| TLS secret name defaulting to `{{ ingress.host }}-tls` | Predictable naming without operator needing to specify it | Low | Computed in `_helpers.tpl`; overridable via `ingress.tls.secretName` |
+| ACME email validation in `helm lint` / `NOTES.txt` | Fail loudly if `letsencrypt` mode selected but no email provided | Low | Add to `NOTES.txt` with `required` function or conditional warning |
+| Let's Encrypt staging CA in `ingress.tls.letsencrypt.server` | Advanced users can override the ACME server URL entirely | Low | Pre-populate with staging URL; document production URL in comments |
+
+---
+
+## Anti-Features
+
+Features to explicitly not build in this milestone.
+
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| DNS-01 ACME challenge | Requires cloud provider API credentials in the cluster — significant complexity, out of scope for this app | HTTP-01 only; document DNS-01 as a future option for wildcard certs |
+| Multiple TLS hosts per ingress | This is a single-domain pottery shop; multi-host config adds template complexity with no benefit | Single `ingress.host` string |
+| cert-manager `Issuer` (namespaced) instead of `ClusterIssuer` | ClusterIssuer is the standard for shared platform cert-manager installs; Issuer adds namespace coupling | ClusterIssuer only |
+| Storing cert-manager ACME account key in values.yaml | Credentials in Helm values end up in release history (world-readable in-cluster) | cert-manager manages ACME account key in its own Secret automatically |
+| Gateway API (HTTPRoute) instead of Ingress | Traefik supports it but adds CRD complexity; existing Ingress template already works | Stick with Kubernetes Ingress API |
+| Separate cert-manager namespace | cert-manager documentation warns against it as a subchart; same-namespace install is simpler | Install cert-manager in the app release namespace |
+| IngressRoute (Traefik CRD) | Requires Traefik CRDs; standard Kubernetes Ingress works and is controller-agnostic | Use `networking.k8s.io/v1` Ingress |
+
+---
+
+## values.yaml Interface Design
+
+This is the complete proposed `ingress:` block for all three TLS modes. The existing `ingress.hosts[]` array is replaced by `ingress.host` (single string) because this app always has one hostname.
+
+### Proposed values.yaml structure
 
 ```yaml
-postgres:
-  # Set to true to deploy a CNPG-managed Postgres cluster inside this release.
-  # Set to false and provide external.dsn to use an external Postgres instance.
-  managed: true
+ingress:
+  enabled: true
+  className: traefik          # Ingress controller class; "traefik" for k3s/k3d defaults
+  annotations: {}             # Additional annotations; cert-manager annotation added automatically
+  host: clay.example.com      # REQUIRED: single hostname for the app
 
-  # Only used when managed: true
-  cluster:
-    instances: 1          # Set to 3 for HA
-    imageName: "ghcr.io/cloudnative-pg/postgresql:16"
-    storage:
-      size: 8Gi
-      storageClass: ""    # Empty = cluster default StorageClass
+  tls:
+    mode: letsencrypt         # One of: letsencrypt | selfsigned | custom
 
-  # Only used when managed: false
-  external:
-    dsn: ""               # e.g. "postgres://user:pass@host:5432/db"
+    # -- letsencrypt mode: HTTP-01 ACME via Let's Encrypt
+    letsencrypt:
+      email: ""               # REQUIRED when mode=letsencrypt
+      production: false       # true = production LE certs; false = staging (browser-untrusted but no rate limits)
 
-# cloudnative-pg subchart is gated by postgres.managed above
-cloudnative-pg:
-  enabled: true           # mirrors postgres.managed via Chart.yaml condition field
+    # -- custom mode: reference a pre-existing kubernetes.io/tls Secret
+    custom:
+      secretName: ""          # REQUIRED when mode=custom; must exist before helm install
+
+# cert-manager subchart -- condition-gated, same pattern as cloudnative-pg
+cert-manager:
+  enabled: true               # Set false when mode=custom (cert-manager not needed)
+  crds:
+    enabled: true             # Install cert-manager CRDs; required on first install
 ```
 
-Note: `DB_PATH` in `config` is a SQLite artifact. It should be removed once the Postgres migration is
-complete, since `DATABASE_URL` replaces it entirely.
+### Mode-specific operator usage
 
-Confidence: HIGH — matches official Helm subchart condition pattern and CNPG documentation.
+**letsencrypt mode (default — production with valid CA)**
+```yaml
+ingress:
+  host: clay.example.com
+  tls:
+    mode: letsencrypt
+    letsencrypt:
+      email: ops@example.com
+      production: true
+cert-manager:
+  enabled: true
+  crds:
+    enabled: true
+```
+
+**selfsigned mode (internal/dev — browser shows untrusted warning)**
+```yaml
+ingress:
+  host: clay.internal
+  tls:
+    mode: selfsigned
+cert-manager:
+  enabled: true
+  crds:
+    enabled: true
+```
+
+**custom mode (BYO certificate — operator pre-creates Secret)**
+```yaml
+ingress:
+  host: clay.example.com
+  tls:
+    mode: custom
+    custom:
+      secretName: clay-tls-prod
+cert-manager:
+  enabled: false              # cert-manager not needed in custom mode
+```
 
 ---
 
-## Conditional Resource Creation
+## Template Logic Summary
 
-Helm's `{{- if ... }}` block gates entire resource files. The standard idiom is:
+### `ingress.yaml` — Annotation injection by mode
 
 ```yaml
-{{- if .Values.postgres.managed }}
-apiVersion: postgresql.cnpg.io/v1
-kind: Cluster
-metadata:
-  name: {{ include "clay.fullname" . }}-pg
-  ...
+# Mode-driven annotation (ingress-shim picks this up automatically)
+{{- if eq .Values.ingress.tls.mode "letsencrypt" }}
+  cert-manager.io/cluster-issuer: {{ if .Values.ingress.tls.letsencrypt.production }}clay-letsencrypt-prod{{ else }}clay-letsencrypt-staging{{ end }}
+{{- else if eq .Values.ingress.tls.mode "selfsigned" }}
+  cert-manager.io/cluster-issuer: clay-selfsigned
 {{- end }}
+# Traefik HTTPS entrypoint
+traefik.ingress.kubernetes.io/router.entrypoints: websecure
 ```
 
-This means `templates/cnpg-cluster.yaml` renders nothing when `postgres.managed: false`. No partial
-resources, no errors.
+TLS secret name in `spec.tls`:
+- `letsencrypt` / `selfsigned`: `{{ .Values.ingress.host }}-tls` (cert-manager creates this Secret)
+- `custom`: `{{ .Values.ingress.tls.custom.secretName }}`
 
-For the `env` block inside `deployment.yaml`, use an if/else to choose between a `secretKeyRef` into the
-CNPG-generated secret vs. a plain `value` from the DSN string:
+### New template files needed
 
-```yaml
-env:
-  {{- if .Values.postgres.managed }}
-  - name: DATABASE_URL
-    valueFrom:
-      secretKeyRef:
-        name: {{ include "clay.fullname" . }}-pg-app
-        key: uri
-  {{- else }}
-  - name: DATABASE_URL
-    value: {{ .Values.postgres.external.dsn | quote }}
-  {{- end }}
-```
+| Template | Purpose |
+|----------|---------|
+| `templates/cert-manager-clusterissuer.yaml` | ClusterIssuer resources — letsencrypt (staging + prod) and selfsigned; gated by mode |
 
-The existing deployment uses `envFrom.secretRef` for the app's own secret (ADMIN_PASS etc). Adding a
-separate named `env` entry for DATABASE_URL alongside `envFrom` is valid Kubernetes — both are applied
-to the container.
-
-Confidence: HIGH — from official Helm flow control docs and Kubernetes env spec.
+No separate `Certificate` resource is needed — ingress-shim creates it automatically from the Ingress annotation + tls.secretName. This is the standard cert-manager pattern.
 
 ---
 
-## Secret Mounting
+## Feature Dependencies
 
-### Managed mode: CNPG-generated Secret
+```
+ingress.host (set)
+  → Ingress hostname
+  → tls.secretName (default: {{ host }}-tls)
+  → ClusterIssuer commonName (letsencrypt/selfsigned modes)
 
-CNPG automatically creates a Secret named `<cluster-name>-app` when a Cluster resource is created.
-The confirmed key names inside this secret (from CNPG 1.27/1.28 docs) are:
+ingress.tls.mode = letsencrypt
+  → cert-manager subchart (must be enabled)
+  → ClusterIssuer letsencrypt-staging (always created in letsencrypt mode)
+  → ClusterIssuer letsencrypt-prod (created when production: true)
+  → ingress annotation: cert-manager.io/cluster-issuer
+  → HTTP-01 solver with ingressClassName: traefik
 
-| Key | Contents |
-|-----|----------|
-| `username` | Database username (app) |
-| `password` | Plain password |
-| `uri` | `postgresql://app:pass@cluster-rw.ns:5432/app` |
-| `jdbc-uri` | JDBC connection URL |
-| `pgpass` | `.pgpass` file format |
-| `dbname` | Database name |
-| `host` | RW service hostname |
-| `port` | Port number |
+ingress.tls.mode = selfsigned
+  → cert-manager subchart (must be enabled)
+  → ClusterIssuer selfsigned (SelfSigned type, no ACME)
+  → ingress annotation: cert-manager.io/cluster-issuer
 
-The `uri` key is what should be mapped to `DATABASE_URL`. The secret name follows the pattern
-`<cluster-metadata-name>-app`. If the Cluster metadata name is `{{ include "clay.fullname" . }}-pg`,
-the secret name is `{{ include "clay.fullname" . }}-pg-app`.
+ingress.tls.mode = custom
+  → cert-manager NOT required (can be disabled)
+  → Pre-existing kubernetes.io/tls Secret referenced by name
+  → NO cert-manager annotation on Ingress
 
-This is a pre-existing secret created by the CNPG operator — the Helm chart does NOT create it.
-The chart just references it via `secretKeyRef`.
-
-### External mode: Plain env var injection
-
-When `postgres.managed: false`, the DSN from `postgres.external.dsn` is injected directly as a plain
-environment variable. No secret object is created by the chart. If the caller wants to avoid putting
-the DSN in values.yaml (which ends up in Helm release history), they can instead store it in a
-pre-existing Secret and reference it via `secretKeyRef` with a configurable secret name — but that is
-a "nice to have" enhancement, not table stakes for this milestone.
-
-### Timing concern: CNPG Secret availability
-
-The CNPG operator creates the `-app` Secret asynchronously after the Cluster resource is accepted.
-The app Pod will fail `CreateContainerConfigError` if it starts before the Secret exists. Mitigation
-options (in order of simplicity):
-
-1. CNPG itself gates the Cluster readiness — once the Cluster reaches `Healthy` phase, the Secret
-   exists. A Helm post-install hook or init container can wait for it, but for a single-instance hobby
-   deployment a sufficiently high `initialDelaySeconds` on readinessProbe is often enough.
-2. Use `optional: false` on the `secretKeyRef` (the default) — pod stays in
-   `CreateContainerConfigError` and retries, which is acceptable since CNPG creates the secret quickly.
-
-Confidence: HIGH for secret key names (verified from CNPG 1.27 docs). MEDIUM for timing — practical
-experience, not from official docs.
+cert-manager subchart enabled
+  → crds.enabled: true (required on first install to register CRDs)
+  → webhook timing: ClusterIssuer cannot be created until webhook is ready
+```
 
 ---
 
-## CNPG Subchart Configuration
+## Relationship to Existing CNPG Pattern
 
-### Chart.yaml dependency entry
+The cert-manager subchart uses the same `condition:` mechanism in `Chart.yaml` as the CNPG operator:
 
 ```yaml
 dependencies:
-  - name: cloudnative-pg
-    version: "0.28.0"
-    repository: "https://cloudnative-pg.github.io/charts"
-    condition: cloudnative-pg.enabled
+  - name: cert-manager
+    version: "v1.17.x"        # pin to current stable
+    repository: "https://charts.jetstack.io"
+    condition: cert-manager.enabled
 ```
 
-The `condition` field points to a path in the parent chart's `values.yaml`. When `cloudnative-pg.enabled`
-is `false`, Helm skips installing the subchart entirely (no CRDs, no operator deployment). This is the
-standard Helm mechanism for optional subcharts — documented in `helm.sh/docs/topics/charts/`.
+The `cert-manager.enabled` value in `values.yaml` is the same condition switch. When `mode: custom`, operators set `cert-manager.enabled: false` to skip the subchart entirely, identical to setting `postgres.managed: false` to skip CNPG.
 
-The condition value must live at top level of the parent `values.yaml` under the subchart alias key:
-
-```yaml
-# values.yaml
-cloudnative-pg:
-  enabled: true  # controlled by postgres.managed logic at install time
-```
-
-Since `cloudnative-pg.enabled` and `postgres.managed` express the same toggle, document clearly in
-values.yaml that they must match. Alternatively, Helm's `condition` field accepts comma-separated
-paths, so you could write `condition: postgres.managed,cloudnative-pg.enabled` — Helm evaluates the
-first truthy path found.
-
-After adding the dependency, run:
-
-```bash
-helm dependency update chart/clay
-```
-
-This downloads the CNPG operator chart into `chart/clay/charts/`.
-
-Current CNPG operator Helm chart: `cloudnative-pg-v0.28.0` (released 2026-04-01).
-Operator chart supports only the latest point release of the CNPG operator — pin to `"0.28.0"` or
-use `"~0.28"` for patch-level auto-updates.
-
-Confidence: HIGH — repo URL and version from official CNPG GitHub releases.
+This means the chart has a consistent pattern: every optional system dependency is a subchart gated by `<subchart-key>.enabled` in `values.yaml`.
 
 ---
 
-## Configurable CNPG Cluster Fields
+## CI Test Values Files Required
 
-These are the fields that belong in `values.yaml` because operators commonly need to tune them:
+| File | Mode | What it validates |
+|------|------|------------------|
+| `ci/tls-letsencrypt.yaml` | letsencrypt + staging issuer | ACME ClusterIssuer renders, Ingress annotation set, cert-manager enabled |
+| `ci/tls-selfsigned.yaml` | selfsigned | SelfSigned ClusterIssuer renders, Ingress annotation set |
+| `ci/tls-custom.yaml` | custom | No ClusterIssuer, no annotation, secretName wired to Ingress tls |
 
-| Field | values.yaml path | Default | Rationale |
-|-------|-----------------|---------|-----------|
-| Instance count | `postgres.cluster.instances` | `1` | HA requires 3; hobby default is 1 |
-| PostgreSQL image | `postgres.cluster.imageName` | `ghcr.io/cloudnative-pg/postgresql:16` | Pin major version; operator handles minor updates |
-| Storage size | `postgres.cluster.storage.size` | `8Gi` | Per-instance PVC size |
-| Storage class | `postgres.cluster.storage.storageClass` | `""` | Empty = cluster default; needed when cluster has multiple StorageClasses |
-| Database name | `postgres.cluster.database` | `"app"` | CNPG defaults to "app"; expose for overriding |
-| Superuser secret | `postgres.cluster.superuserSecret` | `""` | Optional; CNPG can manage it |
-
-Fields to NOT expose (keep internal to the Cluster template, hardcoded or derived):
-
-- `metadata.name` — derive from `{{ include "clay.fullname" . }}-pg` so the app secret name is
-  predictable
-- `bootstrap.initdb.database` / `owner` — hardcode to match the app user the Go binary uses
-- Resource requests/limits on the Postgres pods — defer to a later phase; CNPG defaults are sensible
-
-The minimal `templates/cnpg-cluster.yaml` that covers this chart's requirements:
-
-```yaml
-{{- if .Values.postgres.managed }}
-apiVersion: postgresql.cnpg.io/v1
-kind: Cluster
-metadata:
-  name: {{ include "clay.fullname" . }}-pg
-  namespace: {{ .Release.Namespace }}
-  labels:
-    {{- include "clay.labels" . | nindent 4 }}
-spec:
-  instances: {{ .Values.postgres.cluster.instances }}
-  imageName: {{ .Values.postgres.cluster.imageName | quote }}
-  storage:
-    size: {{ .Values.postgres.cluster.storage.size }}
-    {{- if .Values.postgres.cluster.storage.storageClass }}
-    storageClass: {{ .Values.postgres.cluster.storage.storageClass }}
-    {{- end }}
-  bootstrap:
-    initdb:
-      database: {{ .Values.postgres.cluster.database | default "app" }}
-      owner: {{ .Values.postgres.cluster.database | default "app" }}
-{{- end }}
-```
-
-Confidence: HIGH — Cluster spec fields from official CNPG quickstart and full-example YAML.
+These join the existing `ci/managed-values.yaml` and `ci/external-values.yaml` files. `helm lint` in CI should iterate all five.
 
 ---
 
-## Table Stakes vs Differentiators
+## Complexity Notes
 
-### Table Stakes (must have for the milestone to be complete)
+| Area | Assessment |
+|------|-----------|
+| Ingress template changes | Low — add annotation logic and simplify host from array to string |
+| ClusterIssuer template | Low — ~30 lines of YAML, straightforward if/else by mode |
+| cert-manager subchart wiring | Low — identical pattern to CNPG already implemented |
+| CRD timing pitfall | Medium — cert-manager webhook must be ready before ClusterIssuer is created; Helm's `--wait` flag and `startupapicheck` (built into cert-manager chart) mitigate but don't eliminate this |
+| HTTP-01 challenge routing | Medium — Traefik must have port 80 publicly reachable for LE challenge; fails silently in private clusters |
+| Three-mode CI coverage | Low — three small values files, no new test infrastructure needed |
+| Backward compatibility | Medium — existing `ingress.hosts[]` array must be considered; either migrate cleanly or support both shapes |
 
-| Feature | Why Essential | Implementation |
-|---------|--------------|----------------|
-| `postgres.managed: true/false` toggle | Core requirement — dual-mode support | Boolean in values.yaml |
-| Conditional CNPG Cluster resource | Without this, managed mode is broken | `{{- if .Values.postgres.managed }}` gate in template |
-| `secretKeyRef` to CNPG app secret `uri` key | App must get DATABASE_URL in managed mode | `env[].valueFrom.secretKeyRef` in deployment |
-| External DSN injection as DATABASE_URL | External mode requirement | `env[].value` in deployment when not managed |
-| CNPG operator as subchart with `condition` | Single `helm install` must deploy operator + cluster | `Chart.yaml` dependency with `condition: cloudnative-pg.enabled` |
-| Configurable `instances` | Explicitly required by PROJECT.md | `postgres.cluster.instances` in values.yaml |
-| Configurable `storage.size` | Per-instance PVC is set at cluster creation — can't resize easily later | `postgres.cluster.storage.size` in values.yaml |
-| Remove `DB_PATH` from ConfigMap | SQLite artifact — will confuse the app if left in | Delete from `config` block and ConfigMap template |
-| `strategy: type` change in Deployment | SQLite comment says Recreate; Postgres allows RollingUpdate | Change strategy comment; Recreate is still safe |
+---
 
-### Differentiators (useful but not required for this milestone)
+## Critical Constraints from Existing Chart
 
-| Feature | Value | When to Add |
-|---------|-------|-------------|
-| External DSN from existing Secret (not plaintext in values) | Avoids DSN in Helm history | Later phase — security hardening |
-| `postgres.cluster.imageName` override | Lets operator pin exact PG version | Include now (low cost) |
-| `postgres.cluster.storage.storageClass` override | Needed in multi-SC clusters | Include now (low cost) |
-| CNPG backup config (barman/S3) | Production readiness | Separate milestone |
-| Pod anti-affinity for HA (3-instance) | Prevents all instances on one node | When instances > 1 |
-| PodDisruptionBudget for Postgres pods | Prevents simultaneous draining | Separate milestone |
-| Wait init container for CNPG Secret | Prevents race condition on first deploy | Nice to have; not required |
+1. The existing `values.yaml` has `ingress.hosts` as an **array** and `ingress.tls` as a **list of secretName/hosts pairs**. The new design flattens this to `ingress.host` (string) and `ingress.tls.mode` (string). This is a **breaking change** to values structure — acceptable for a new milestone, but must be documented.
 
-### Anti-Features (explicitly do not build)
+2. The existing ingress template iterates `range .Values.ingress.hosts`. After this change, the template uses `ingress.host` directly. The current nginx annotation (`nginx.ingress.kubernetes.io/proxy-body-size`) should be moved into the Traefik annotation block or kept as a passthrough annotation.
 
-| Anti-Feature | Why Avoid |
-|--------------|-----------|
-| Bundling both `DB_PATH` and `DATABASE_URL` simultaneously | Ambiguity in app config; clean cut is simpler |
-| Custom CNPG user/password management | CNPG owns credentials; fighting it creates drift |
-| SQLite fallback mode | PROJECT.md explicitly out of scope |
-| Exposing all CNPG Cluster spec fields as values | Over-engineering; expose only what this app needs |
+3. `Chart.yaml` currently has no `dependencies:` block (CNPG was moved out per git history: "move cnpg out of the Clay chart"). This means **CNPG is no longer a subchart** — the pattern reference in `PROJECT.md` describes the intended design but it may be installed separately. The cert-manager subchart dependency approach still applies as the clean pattern, but verify the current chart state before implementing.
 
 ---
 
 ## Sources
 
-- Helm official docs — subchart conditions: https://helm.sh/docs/topics/charts/
-- Helm flow control: https://helm.sh/docs/chart_template_guide/control_structures/
-- CNPG app secret keys: https://cloudnative-pg.io/docs/1.27/applications/
-- CNPG external secrets (key names confirmed): https://cloudnative-pg.io/docs/1.28/cncf-projects/external-secrets/
-- CNPG Cluster spec (instances, storage, imageName): https://cloudnative-pg.io/documentation/1.20/quickstart/ and https://github.com/cloudnative-pg/cloudnative-pg/blob/main/docs/src/samples/cluster-example-full.yaml
-- CNPG Helm chart repo: https://cloudnative-pg.github.io/charts (v0.28.0 as of 2026-04-01)
-- Airflow chart external DB pattern: https://github.com/airflow-helm/charts/blob/main/charts/airflow/docs/faq/database/external-database.md
-- CNPG secret naming (recipe article): https://www.gabrielebartolini.it/articles/2024/03/cloudnativepg-recipe-2-inspecting-default-resources-in-a-cloudnativepg-cluster/
+- cert-manager Ingress annotations (ingress-shim): https://cert-manager.io/docs/usage/ingress/
+- cert-manager HTTP-01 solver: https://cert-manager.io/docs/configuration/acme/http01/
+- cert-manager SelfSigned issuer: https://cert-manager.io/docs/configuration/selfsigned/
+- cert-manager Helm installation (v1.20.2, OCI registry, crds.enabled): https://cert-manager.io/docs/installation/helm/
+- cert-manager best practices: https://cert-manager.io/docs/installation/best-practice/
+- cert-manager as Helm subchart (webhook timing pitfall, post-install Job): https://skarlso.github.io/2024/07/02/using-cert-manager-as-a-subchart-with-helm/
+- Traefik + cert-manager integration (ingressClassName: traefik): https://doc.traefik.io/traefik/v3.3/user-guides/cert-manager/
+- cert-manager ClusterIssuer concept: https://cert-manager.io/docs/concepts/issuer/
