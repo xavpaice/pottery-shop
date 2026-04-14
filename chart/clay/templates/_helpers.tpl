@@ -52,11 +52,11 @@ Chart label
 Validate required secrets — fail fast at render time rather than at runtime.
 */}}
 {{- define "clay.validateSecrets" -}}
-{{- if not .Values.secrets.ADMIN_PASS }}
-  {{- fail "secrets.ADMIN_PASS must be set" }}
+{{- if not (.Values.secrets.ADMIN_PASS | trim) }}
+  {{- fail "secrets.ADMIN_PASS must be set (value must not be blank)" }}
 {{- end }}
-{{- if not .Values.secrets.SESSION_SECRET }}
-  {{- fail "secrets.SESSION_SECRET must be set" }}
+{{- if not (.Values.secrets.SESSION_SECRET | trim) }}
+  {{- fail "secrets.SESSION_SECRET must be set (value must not be blank)" }}
 {{- end }}
 {{- end }}
 
@@ -65,10 +65,10 @@ Validate required ingress values -- fail fast at render time.
 Called from ingress.yaml inside the {{- if .Values.ingress.enabled }} guard.
 */}}
 {{- define "clay.validateIngress" -}}
-{{- if not .Values.ingress.host }}
-  {{- fail "ingress.host must be set" }}
+{{- if not (.Values.ingress.host | trim) }}
+  {{- fail "ingress.host must be set (value must not be blank)" }}
 {{- end }}
-{{- if not .Values.ingress.tls.mode }}
+{{- if not (.Values.ingress.tls.mode | trim) }}
   {{- fail "ingress.tls.mode must be set (letsencrypt|selfsigned|custom)" }}
 {{- end }}
 {{- if and (ne .Values.ingress.tls.mode "letsencrypt") (ne .Values.ingress.tls.mode "selfsigned") (ne .Values.ingress.tls.mode "custom") }}
