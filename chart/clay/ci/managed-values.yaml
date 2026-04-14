@@ -1,0 +1,13 @@
+# CI test values for managed CNPG mode
+postgres:
+  managed: true
+  cluster:
+    instances: 1
+    storage:
+      size: 1Gi
+      storageClass: ""
+  external:
+    dsn: ""
+
+cloudnative-pg:
+  enabled: true

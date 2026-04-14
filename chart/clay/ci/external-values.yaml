@@ -1,0 +1,13 @@
+# CI test values for external Postgres mode
+postgres:
+  managed: false
+  cluster:
+    instances: 1
+    storage:
+      size: 1Gi
+      storageClass: ""
+  external:
+    dsn: "postgresql://user:pass@external-host:5432/clay"
+
+cloudnative-pg:
+  enabled: false
