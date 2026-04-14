@@ -59,6 +59,7 @@ The Traefik annotations are hardcoded string literals (no injection vector), but
 | Audit Date | Threats Total | Closed | Open | Run By |
 |------------|---------------|--------|------|--------|
 | 2026-04-14 | 5 | 5 | 0 | gsd-security-auditor |
+| 2026-04-14 | 5 | 5 | 0 | re-audit (State A — threats_open already 0, no changes) |
 
 ---
 
