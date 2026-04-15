@@ -64,8 +64,12 @@ Plans:
   2. `helm template` with `cloudnative-pg.enabled: false` produces no CNPG webhook-wait Job; with `cert-manager.enabled: false` produces no cert-manager webhook-wait Job
   3. Each webhook-wait Job carries `helm.sh/hook: post-install,post-upgrade` and a weight annotation placing it at -20
   4. The ClusterRole grants only the minimum verbs needed to query CRDs and endpoints (no wildcard rules)
-**Plans**: TBD
+**Plans**: 2 plans
 **UI hint**: no
+
+Plans:
+- [ ] 07-01-PLAN.md — RBAC + Jobs webhook-wait templates (WBHK-01, WBHK-02, WBHK-03, WBHK-04)
+- [ ] 07-02-PLAN.md — Behavioral test groups G-15 through G-19 for webhook readiness (WBHK-01, WBHK-02, WBHK-03, WBHK-04)
 
 ### Phase 8: Hook Weight Ordering
 **Goal**: Every hook resource has the correct weight annotation, and the CNPG Cluster CR is a post-install/post-upgrade hook that runs after the webhook-wait Job — ensuring the full deployment sequence is RBAC → webhook-wait → CNPG Cluster → cert-manager CRs
@@ -103,7 +107,7 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 6. Subchart Dependencies | v1.2 | 3/3 | Complete   | 2026-04-15 |
-| 7. Webhook Readiness | v1.2 | 0/? | Not started | - |
+| 7. Webhook Readiness | v1.2 | 0/2 | Not started | - |
 | 8. Hook Weight Ordering | v1.2 | 0/? | Not started | - |
 | 9. CI Test Matrix | v1.2 | 0/? | Not started | - |
 | 10. Documentation | v1.2 | 0/? | Not started | - |
