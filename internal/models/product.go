@@ -102,6 +102,81 @@ func (s *ProductStore) ListAllWithSeller(ctx context.Context) ([]Product, error)
 	return products, rows.Err()
 }
 
+// ListAvailableWithSeller returns unsold products with seller name populated via LEFT JOIN.
+func (s *ProductStore) ListAvailableWithSeller(ctx context.Context) ([]Product, error) {
+	rows, err := s.DB.QueryContext(ctx,
+		`SELECT products.id, products.title, products.description, products.price, products.is_sold,
+		        products.created_at, products.updated_at, products.seller_id, COALESCE(sellers.name, '') AS seller_name
+		 FROM products
+		 LEFT JOIN sellers ON products.seller_id = sellers.id
+		 WHERE products.is_sold = false
+		 ORDER BY products.created_at DESC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var products []Product
+	for rows.Next() {
+		var p Product
+		if err := rows.Scan(&p.ID, &p.Title, &p.Description, &p.Price, &p.IsSold,
+			&p.CreatedAt, &p.UpdatedAt, &p.SellerID, &p.SellerName); err != nil {
+			return nil, err
+		}
+		p.Images, _ = s.GetImages(p.ID)
+		products = append(products, p)
+	}
+	return products, rows.Err()
+}
+
+// ListSoldWithSeller returns sold products with seller name populated via LEFT JOIN.
+func (s *ProductStore) ListSoldWithSeller(ctx context.Context) ([]Product, error) {
+	rows, err := s.DB.QueryContext(ctx,
+		`SELECT products.id, products.title, products.description, products.price, products.is_sold,
+		        products.created_at, products.updated_at, products.seller_id, COALESCE(sellers.name, '') AS seller_name
+		 FROM products
+		 LEFT JOIN sellers ON products.seller_id = sellers.id
+		 WHERE products.is_sold = true
+		 ORDER BY products.updated_at DESC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var products []Product
+	for rows.Next() {
+		var p Product
+		if err := rows.Scan(&p.ID, &p.Title, &p.Description, &p.Price, &p.IsSold,
+			&p.CreatedAt, &p.UpdatedAt, &p.SellerID, &p.SellerName); err != nil {
+			return nil, err
+		}
+		p.Images, _ = s.GetImages(p.ID)
+		products = append(products, p)
+	}
+	return products, rows.Err()
+}
+
+// GetByIDWithSeller returns a single product by ID with seller name populated via LEFT JOIN.
+func (s *ProductStore) GetByIDWithSeller(ctx context.Context, id int64) (*Product, error) {
+	p := &Product{}
+	err := s.DB.QueryRowContext(ctx,
+		`SELECT products.id, products.title, products.description, products.price, products.is_sold,
+		        products.created_at, products.updated_at, products.seller_id, COALESCE(sellers.name, '') AS seller_name
+		 FROM products
+		 LEFT JOIN sellers ON products.seller_id = sellers.id
+		 WHERE products.id = $1`,
+		id,
+	).Scan(&p.ID, &p.Title, &p.Description, &p.Price, &p.IsSold,
+		&p.CreatedAt, &p.UpdatedAt, &p.SellerID, &p.SellerName)
+	if err != nil {
+		return nil, err
+	}
+	p.Images, err = s.GetImages(id)
+	return p, err
+}
+
 func (s *ProductStore) Update(p *Product) error {
 	_, err := s.DB.Exec(
 		`UPDATE products SET title=$1, description=$2, price=$3, is_sold=$4, updated_at=NOW() WHERE id=$5`,

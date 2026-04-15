@@ -24,6 +24,7 @@
 
     <div class="product-details">
         <h1>{{.Title}}</h1>
+        {{if .SellerName}}<p class="seller-attribution">by <a href="/seller/{{.SellerID}}">{{.SellerName}}</a></p>{{end}}
         <p class="price">${{printf "%.2f" .Price}}</p>
 
         {{if .IsSold}}

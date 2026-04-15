@@ -36,7 +36,7 @@ func (h *PublicHandler) Home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	products, err := h.Store.ListAvailable()
+	products, err := h.Store.ListAvailableWithSeller(r.Context())
 	if err != nil {
 		log.Printf("Error listing products: %v", err)
 		http.Error(w, "Internal server error", 500)
@@ -57,7 +57,33 @@ func (h *PublicHandler) Home(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *PublicHandler) Gallery(w http.ResponseWriter, r *http.Request) {
-	products, err := h.Store.ListSold()
+	ctx := r.Context()
+
+	var products []models.Product
+	var err error
+
+	// Optional seller filter: ?seller={id}
+	if sellerStr := r.URL.Query().Get("seller"); sellerStr != "" {
+		if sellerID, parseErr := strconv.ParseInt(sellerStr, 10, 64); parseErr == nil {
+			products, err = h.Store.ListBySeller(ctx, sellerID)
+			// Filter to only sold items when filtering by seller
+			if err == nil {
+				var sold []models.Product
+				for _, p := range products {
+					if p.IsSold {
+						sold = append(sold, p)
+					}
+				}
+				products = sold
+			}
+		}
+	}
+
+	// No (valid) seller filter — list all sold with seller attribution
+	if products == nil && err == nil {
+		products, err = h.Store.ListSoldWithSeller(ctx)
+	}
+
 	if err != nil {
 		log.Printf("Error listing sold products: %v", err)
 		http.Error(w, "Internal server error", 500)
@@ -85,7 +111,7 @@ func (h *PublicHandler) ProductDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	product, err := h.Store.GetByID(id)
+	product, err := h.Store.GetByIDWithSeller(r.Context(), id)
 	if err != nil {
 		http.NotFound(w, r)
 		return
