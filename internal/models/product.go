@@ -37,10 +37,14 @@ func NewProductStore(db *sql.DB) *ProductStore {
 }
 
 func (s *ProductStore) Create(p *Product, sellerID int64) error {
+	var sid interface{}
+	if sellerID != 0 {
+		sid = sellerID
+	}
 	err := s.DB.QueryRow(
 		`INSERT INTO products (title, description, price, is_sold, seller_id)
          VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-		p.Title, p.Description, p.Price, p.IsSold, sellerID,
+		p.Title, p.Description, p.Price, p.IsSold, sid,
 	).Scan(&p.ID)
 	return err
 }
@@ -49,7 +53,7 @@ func (s *ProductStore) Create(p *Product, sellerID int64) error {
 func (s *ProductStore) ListBySeller(ctx context.Context, sellerID int64) ([]Product, error) {
 	rows, err := s.DB.QueryContext(ctx,
 		`SELECT products.id, products.title, products.description, products.price, products.is_sold,
-		        products.created_at, products.updated_at, products.seller_id, COALESCE(sellers.name, '') AS seller_name
+		        products.created_at, products.updated_at, COALESCE(products.seller_id, 0) AS seller_id, COALESCE(sellers.name, '') AS seller_name
 		 FROM products
 		 LEFT JOIN sellers ON products.seller_id = sellers.id
 		 WHERE products.seller_id = $1
@@ -79,7 +83,7 @@ func (s *ProductStore) ListBySeller(ctx context.Context, sellerID int64) ([]Prod
 func (s *ProductStore) ListAllWithSeller(ctx context.Context) ([]Product, error) {
 	rows, err := s.DB.QueryContext(ctx,
 		`SELECT products.id, products.title, products.description, products.price, products.is_sold,
-		        products.created_at, products.updated_at, products.seller_id, COALESCE(sellers.name, '') AS seller_name
+		        products.created_at, products.updated_at, COALESCE(products.seller_id, 0) AS seller_id, COALESCE(sellers.name, '') AS seller_name
 		 FROM products
 		 LEFT JOIN sellers ON products.seller_id = sellers.id
 		 ORDER BY products.created_at DESC`,
@@ -106,7 +110,7 @@ func (s *ProductStore) ListAllWithSeller(ctx context.Context) ([]Product, error)
 func (s *ProductStore) ListAvailableWithSeller(ctx context.Context) ([]Product, error) {
 	rows, err := s.DB.QueryContext(ctx,
 		`SELECT products.id, products.title, products.description, products.price, products.is_sold,
-		        products.created_at, products.updated_at, products.seller_id, COALESCE(sellers.name, '') AS seller_name
+		        products.created_at, products.updated_at, COALESCE(products.seller_id, 0) AS seller_id, COALESCE(sellers.name, '') AS seller_name
 		 FROM products
 		 LEFT JOIN sellers ON products.seller_id = sellers.id
 		 WHERE products.is_sold = false
@@ -134,7 +138,7 @@ func (s *ProductStore) ListAvailableWithSeller(ctx context.Context) ([]Product, 
 func (s *ProductStore) ListSoldWithSeller(ctx context.Context) ([]Product, error) {
 	rows, err := s.DB.QueryContext(ctx,
 		`SELECT products.id, products.title, products.description, products.price, products.is_sold,
-		        products.created_at, products.updated_at, products.seller_id, COALESCE(sellers.name, '') AS seller_name
+		        products.created_at, products.updated_at, COALESCE(products.seller_id, 0) AS seller_id, COALESCE(sellers.name, '') AS seller_name
 		 FROM products
 		 LEFT JOIN sellers ON products.seller_id = sellers.id
 		 WHERE products.is_sold = true
@@ -163,7 +167,7 @@ func (s *ProductStore) GetByIDWithSeller(ctx context.Context, id int64) (*Produc
 	p := &Product{}
 	err := s.DB.QueryRowContext(ctx,
 		`SELECT products.id, products.title, products.description, products.price, products.is_sold,
-		        products.created_at, products.updated_at, products.seller_id, COALESCE(sellers.name, '') AS seller_name
+		        products.created_at, products.updated_at, COALESCE(products.seller_id, 0) AS seller_id, COALESCE(sellers.name, '') AS seller_name
 		 FROM products
 		 LEFT JOIN sellers ON products.seller_id = sellers.id
 		 WHERE products.id = $1`,

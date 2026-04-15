@@ -75,6 +75,10 @@ func TestMain(m *testing.M) {
 func setupTestEnv(t *testing.T) (*PublicHandler, *middleware.SessionManager) {
 	t.Helper()
 
+	if handlersTestDBURL == "" {
+		t.Skip("testcontainers unavailable; skipping DB-dependent test")
+	}
+
 	pool, err := pgxpool.New(context.Background(), handlersTestDBURL)
 	if err != nil {
 		t.Fatalf("failed to create pool: %v", err)
