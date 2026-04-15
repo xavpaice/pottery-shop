@@ -50,9 +50,10 @@ lint: helm-lint helm-test
 docker:
 	docker build -t ghcr.io/xavpaice/pottery-shop:latest .
 
-## deploy: apply all Kubernetes manifests
+## deploy: deploy via Helm (raw manifests not included; use the Helm chart)
 deploy:
-	kubectl apply -f k8s/
+	@echo "Raw Kubernetes manifests are not included. Use 'helm upgrade --install clay ./chart/clay -n clay' instead."
+	@exit 1
 
 GHCR_USERNAME ?= xavpaice
 IMAGE_REPO := ghcr.io/xavpaice/pottery-shop

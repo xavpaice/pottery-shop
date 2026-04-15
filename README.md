@@ -203,7 +203,9 @@ Key `values.yaml` settings to customise:
 | `postgres.cluster.storage.size` | `5Gi` | CNPG PVC size |
 | `cloudnative-pg.enabled` | `true` | `true` = bundle CNPG operator as subchart; `false` = use pre-installed operator |
 | `cert-manager.enabled` | `true` | `true` = bundle cert-manager as subchart; `false` = use pre-installed cert-manager |
-| `ingress.hosts[0].host` | `clay.nz` | Your domain |
+| `ingress.enabled` | `false` | Enable ingress resource |
+| `ingress.host` | `""` | Hostname (**required** when `ingress.enabled: true`) |
+| `ingress.tls.mode` | `""` | TLS mode: `letsencrypt`, `selfsigned`, or `custom` |
 | `persistence.size` | `5Gi` | PVC for uploaded images |
 | `imagePullSecrets` | `[]` | Required for private images (see below) |
 
@@ -254,15 +256,8 @@ helm upgrade clay ./chart/clay -n clay
 
 ### Kubernetes (raw manifests)
 
-Raw manifests are also available in `k8s/` if you prefer not to use Helm:
-
-1. **Edit secrets** in `k8s/secret.yaml` — set a real `ADMIN_PASS` and `SESSION_SECRET`
-2. **Update** `k8s/configmap.yaml` and `k8s/ingress.yaml` with your domain/SMTP settings
-3. **Apply:**
-   ```bash
-   make deploy
-   # or: kubectl apply -f k8s/
-   ```
+> **Note:** Raw Kubernetes manifests are not included in this repository. Use the Helm chart
+> (`chart/clay/`) for all Kubernetes deployments.
 
 ### Bare metal / VPS
 
