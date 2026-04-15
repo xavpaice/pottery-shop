@@ -114,7 +114,7 @@ Plans:
 | 11. Seller Accounts and Auth | v1.3 | 0/3 | Not started | - |
 | 12. Product Ownership | v1.3 | 0/2 | Planned    |  |
 | 13. Gallery and Seller Profiles | v1.3 | 0/2 | Not started | - |
-| 14. Firing Logs CRUD | v1.3 | 0/3 | Not started | - |
+| 14. Firing Logs CRUD | v1.3 | 1/3 | In Progress|  |
 | 15. Temperature Graphs | v1.3 | 0/2 | Not started | - |
 | 16. Admin Seller Oversight | v1.3 | 1/2 | In Progress|  |
 
@@ -196,7 +196,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 14-01-PLAN.md — DB migrations (firing_logs + firing_readings) + FiringLogStore model (SELL-09)
+- [x] 14-01-PLAN.md — DB migrations (firing_logs + firing_readings) + FiringLogStore model (SELL-09)
 - [ ] 14-02-PLAN.md — Dashboard CRUD handlers for firing logs (list, create, view, edit, update, delete) (SELL-10)
 - [ ] 14-03-PLAN.md — Templates: list, new/edit form (table rows + add-row), detail view (SELL-11)
 
