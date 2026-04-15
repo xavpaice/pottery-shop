@@ -267,6 +267,26 @@
           "description": "Pin to a specific patch version to avoid mutable-tag supply-chain risk"
         }
       }
+    },
+    "cloudnative-pg": {
+      "type": "object",
+      "description": "CloudNativePG operator subchart toggle (D-06)",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "true = bundle and install CNPG operator as a subchart; false = operator is pre-installed"
+        }
+      }
+    },
+    "cert-manager": {
+      "type": "object",
+      "description": "cert-manager operator subchart toggle (D-06)",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "true = bundle and install cert-manager as a subchart; false = operator is pre-installed"
+        }
+      }
     }
   },
   "required": ["image", "secrets"]
