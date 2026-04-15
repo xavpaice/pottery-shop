@@ -12,20 +12,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/disintegration/imaging"
-
 	"pottery-shop/internal/models"
 )
 
 type AdminHandler struct {
 	Store      *models.ProductStore
+	Sellers    *models.SellerStore
 	Templates  *template.Template
 	UploadDir  string
 	ThumbDir   string
 }
 
 func (h *AdminHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
-	products, err := h.Store.ListAll()
+	products, err := h.Store.ListAllWithSeller(r.Context())
 	if err != nil {
 		log.Printf("Error listing products: %v", err)
 		http.Error(w, "Internal server error", 500)
@@ -60,7 +59,9 @@ func (h *AdminHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 		IsSold:      r.FormValue("is_sold") == "on",
 	}
 
-	if err := h.Store.Create(product); err != nil {
+	// TODO: admin Basic Auth has no SellerID; assign 0 for now.
+	// A future plan will wire admin seller identity once admin login uses the seller session.
+	if err := h.Store.Create(product, 0); err != nil {
 		log.Printf("Error creating product: %v", err)
 		http.Error(w, "Error creating product", 500)
 		return
@@ -298,18 +299,7 @@ func (h *AdminHandler) handleImageUploads(r *http.Request, productID int64) {
 }
 
 func (h *AdminHandler) generateThumbnail(src, dst string, maxWidth int) {
-	// imaging.Open auto-applies EXIF orientation
-	img, err := imaging.Open(src, imaging.AutoOrientation(true))
-	if err != nil {
-		log.Printf("Error opening image for thumbnail: %v", err)
-		return
-	}
-
-	thumb := imaging.Resize(img, maxWidth, 0, imaging.Lanczos)
-
-	if err := imaging.Save(thumb, dst, imaging.JPEGQuality(85)); err != nil {
-		log.Printf("Error saving thumbnail: %v", err)
-	}
+	generateThumbnail(src, dst, maxWidth)
 }
 
 func (h *AdminHandler) render(w http.ResponseWriter, name string, data interface{}) {

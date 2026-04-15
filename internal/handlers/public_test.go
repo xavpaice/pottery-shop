@@ -124,7 +124,7 @@ func createTestProduct(t *testing.T, store *models.ProductStore, title string, p
 		Price:       price,
 		IsSold:      sold,
 	}
-	if err := store.Create(p); err != nil {
+	if err := store.Create(p, 0); err != nil {
 		t.Fatalf("failed to create product: %v", err)
 	}
 	return p

@@ -12,6 +12,7 @@
         <tr>
             <th>Image</th>
             <th>Title</th>
+            <th>Seller</th>
             <th>Price</th>
             <th>Status</th>
             <th>Actions</th>
@@ -28,6 +29,7 @@
                 {{end}}
             </td>
             <td><a href="/admin/products/{{.ID}}/edit">{{.Title}}</a></td>
+            <td>{{if .SellerName}}{{.SellerName}}{{else}}<span class="no-thumb">—</span>{{end}}</td>
             <td>${{printf "%.2f" .Price}}</td>
             <td>
                 <form method="POST" action="/admin/products/toggle-sold" class="inline-form">
