@@ -61,7 +61,7 @@ Requirements for milestone v1.2 (Umbrella Chart). Each maps to roadmap phases.
 
 ## Traceability
 
-Updated during roadmap creation.
+Roadmap created 2026-04-15 — all 19 v1.2 requirements mapped to phases 6–10.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
@@ -92,4 +92,4 @@ Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-04-15*
-*Last updated: 2026-04-15 after initial definition*
+*Last updated: 2026-04-15 — roadmap created, traceability confirmed*
