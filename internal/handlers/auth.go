@@ -205,6 +205,12 @@ func (h *AuthHandler) ApproveSellerByToken(w http.ResponseWriter, r *http.Reques
 		template.HTMLEscapeString(seller.Name))
 }
 
+// RequireSeller is the exported form of requireSeller, allowing route registration
+// in main.go to wrap FiringLogHandler (and future handlers) with the seller guard.
+func (h *AuthHandler) RequireSeller(next http.HandlerFunc) http.HandlerFunc {
+	return h.requireSeller(next)
+}
+
 // requireSeller is a middleware guard that redirects to /login if the seller
 // is not authenticated or their account is not active.
 func (h *AuthHandler) requireSeller(next http.HandlerFunc) http.HandlerFunc {

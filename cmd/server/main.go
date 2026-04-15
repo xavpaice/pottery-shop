@@ -124,6 +124,9 @@ func main() {
 
 	authHandler := handlers.NewAuthHandler(sellerStore, store, sessionMgr, publicTemplates, config, uploadDir, thumbDir)
 
+	firingLogStore := models.NewFiringLogStore(pool)
+	firingLogHandler := handlers.NewFiringLogHandler(firingLogStore, sessionMgr, publicTemplates)
+
 	// Mux
 	mux := http.NewServeMux()
 
@@ -152,6 +155,23 @@ func main() {
 	})
 	mux.HandleFunc("/logout", authHandler.Logout)
 	mux.HandleFunc("/dashboard", authHandler.Dashboard)
+
+	// Seller dashboard firing log routes (guarded by RequireSeller at registration)
+	mux.HandleFunc("/dashboard/firings", authHandler.RequireSeller(firingLogHandler.List))
+	mux.HandleFunc("/dashboard/firings/new", authHandler.RequireSeller(firingLogHandler.New))
+	mux.HandleFunc("/dashboard/firings/create", authHandler.RequireSeller(firingLogHandler.Create))
+	mux.HandleFunc("/dashboard/firings/", func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if strings.HasSuffix(path, "/edit") {
+			authHandler.RequireSeller(firingLogHandler.Edit)(w, r)
+		} else if strings.HasSuffix(path, "/update") {
+			authHandler.RequireSeller(firingLogHandler.Update)(w, r)
+		} else if strings.HasSuffix(path, "/delete") {
+			authHandler.RequireSeller(firingLogHandler.Delete)(w, r)
+		} else {
+			authHandler.RequireSeller(firingLogHandler.View)(w, r)
+		}
+	})
 
 	// Seller dashboard product routes (guarded by requireSeller inside each handler)
 	mux.HandleFunc("/dashboard/products", authHandler.DashboardProducts)
