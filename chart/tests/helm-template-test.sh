@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Behavioral tests for chart/clay Helm template rendering (Phase 3: values-and-ingress-refactor, Phase 4: cert-manager-cr-templates)
-# Requirements: INGR-01, INGR-02, INGR-03, INGR-04, TLS-01, TLS-02, TLS-03, SC-5
+# Behavioral tests for chart/clay Helm template rendering (Phase 3: values-and-ingress-refactor, Phase 4: cert-manager-cr-templates, Phase 7: webhook-readiness)
+# Requirements: INGR-01, INGR-02, INGR-03, INGR-04, TLS-01, TLS-02, TLS-03, SC-5, WBHK-01, WBHK-02, WBHK-03, WBHK-04
 # Run from any directory; CHART_DIR is resolved relative to this script's location.
 set -euo pipefail
 
@@ -340,6 +340,124 @@ if [ "${CERT_CUSTOM_COUNT}" -eq 0 ]; then
 else
     fail "G-14b TLS-01+TLS-02: custom mode renders zero Certificate resources" \
          "Expected 0 Certificate resources, got ${CERT_CUSTOM_COUNT}"
+fi
+
+# ---------------------------------------------------------------------------
+# G-15 / WBHK-01+WBHK-02+WBHK-03: both operators enabled -> 2 Jobs, shared RBAC
+# ---------------------------------------------------------------------------
+OUTPUT_WH_15=$("${HELM}" template release-test "${CHART_DIR}" \
+  "${REQUIRED[@]}" 2>&1)
+
+# Count only the clay webhook-wait Jobs (cnpg + cert-manager); subchart Jobs (e.g. cert-manager-startupapicheck) are excluded
+# Anchor to "^  name:" (2 spaces = metadata.name) to avoid matching template.metadata.name (6 spaces) inside the Job spec
+JOB_COUNT=$(echo "${OUTPUT_WH_15}" | grep -cE "^  name: release-test-clay-(cnpg|cert-manager)-webhook-wait" || true)
+
+if [ "${JOB_COUNT}" -eq 2 ]; then
+    pass "G-15a WBHK-01+WBHK-02: both operators enabled renders exactly 2 Job resources (got ${JOB_COUNT})"
+else
+    fail "G-15a WBHK-01+WBHK-02: both operators enabled renders exactly 2 Job resources" \
+         "Expected 2 Job resources, got ${JOB_COUNT}"
+fi
+
+if echo "${OUTPUT_WH_15}" | grep -q "name: release-test-clay-webhook-wait"; then
+    pass "G-15b WBHK-03: ServiceAccount named release-test-clay-webhook-wait present"
+else
+    fail "G-15b WBHK-03: ServiceAccount named release-test-clay-webhook-wait present" \
+         "Expected 'name: release-test-clay-webhook-wait' in output"
+fi
+
+# Extract only the webhook-wait-rbac.yaml section to scope the SA count check
+RBAC_SECTION=$(echo "${OUTPUT_WH_15}" | awk '/# Source: clay\/templates\/webhook-wait-rbac\.yaml/{p=1} /^# Source:/{if(p && !/webhook-wait-rbac/){p=0}} p')
+SA_COUNT=$(echo "${RBAC_SECTION}" | grep -c "^kind: ServiceAccount" || true)
+
+if [ "${SA_COUNT}" -ge 1 ]; then
+    pass "G-15c WBHK-03: at least 1 ServiceAccount for webhook-wait"
+else
+    fail "G-15c WBHK-03: at least 1 ServiceAccount for webhook-wait" \
+         "Expected ServiceAccount with webhook-wait name, got ${SA_COUNT}"
+fi
+
+if echo "${OUTPUT_WH_15}" | grep -q "^kind: ClusterRole$"; then
+    pass "G-15d WBHK-03: ClusterRole resource present"
+else
+    fail "G-15d WBHK-03: ClusterRole resource present" \
+         "Expected 'kind: ClusterRole' (not ClusterRoleBinding) in output"
+fi
+
+if echo "${OUTPUT_WH_15}" | grep -q "^kind: ClusterRoleBinding"; then
+    pass "G-15e WBHK-03: ClusterRoleBinding resource present"
+else
+    fail "G-15e WBHK-03: ClusterRoleBinding resource present" \
+         "Expected 'kind: ClusterRoleBinding' in output"
+fi
+
+# ---------------------------------------------------------------------------
+# G-16 / WBHK-04: cloudnative-pg.enabled=false -> no CNPG webhook-wait Job
+# ---------------------------------------------------------------------------
+OUTPUT_WH_16=$("${HELM}" template release-test "${CHART_DIR}" \
+  "${REQUIRED[@]}" \
+  --set 'cloudnative-pg.enabled=false' 2>&1)
+
+if echo "${OUTPUT_WH_16}" | grep -q "cnpg-webhook-wait"; then
+    fail "G-16 WBHK-04: cloudnative-pg disabled renders no CNPG webhook-wait Job" \
+         "Found 'cnpg-webhook-wait' in output -- should not appear when cloudnative-pg.enabled=false"
+else
+    pass "G-16 WBHK-04: cloudnative-pg disabled renders no CNPG webhook-wait Job (cnpg-webhook-wait absent)"
+fi
+
+# ---------------------------------------------------------------------------
+# G-17 / WBHK-04: cert-manager.enabled=false -> no cert-manager webhook-wait Job
+# ---------------------------------------------------------------------------
+OUTPUT_WH_17=$("${HELM}" template release-test "${CHART_DIR}" \
+  "${REQUIRED[@]}" \
+  --set 'cert-manager.enabled=false' 2>&1)
+
+if echo "${OUTPUT_WH_17}" | grep -q "cert-manager-webhook-wait"; then
+    fail "G-17 WBHK-04: cert-manager disabled renders no cert-manager webhook-wait Job" \
+         "Found 'cert-manager-webhook-wait' in output -- should not appear when cert-manager.enabled=false"
+else
+    pass "G-17 WBHK-04: cert-manager disabled renders no cert-manager webhook-wait Job (cert-manager-webhook-wait absent)"
+fi
+
+# ---------------------------------------------------------------------------
+# G-18 / WBHK-01+WBHK-02: webhook-wait Jobs carry correct hook annotations
+# ---------------------------------------------------------------------------
+OUTPUT_WH_18=$("${HELM}" template release-test "${CHART_DIR}" \
+  "${REQUIRED[@]}" 2>&1)
+
+HOOK_COUNT=$(echo "${OUTPUT_WH_18}" | grep -c '"helm.sh/hook": post-install,post-upgrade' || true)
+
+if [ "${HOOK_COUNT}" -ge 2 ]; then
+    pass "G-18a WBHK-01+WBHK-02: at least 2 resources carry helm.sh/hook: post-install,post-upgrade (got ${HOOK_COUNT})"
+else
+    fail "G-18a WBHK-01+WBHK-02: at least 2 resources carry helm.sh/hook: post-install,post-upgrade" \
+         "Expected at least 2 occurrences, got ${HOOK_COUNT}"
+fi
+
+WEIGHT_COUNT=$(echo "${OUTPUT_WH_18}" | grep -c '"helm.sh/hook-weight": "-20"' || true)
+
+if [ "${WEIGHT_COUNT}" -ge 2 ]; then
+    pass "G-18b WBHK-01+WBHK-02: at least 2 resources carry hook-weight -20 (got ${WEIGHT_COUNT})"
+else
+    fail "G-18b WBHK-01+WBHK-02: at least 2 resources carry hook-weight -20" \
+         "Expected at least 2 occurrences of hook-weight -20, got ${WEIGHT_COUNT}"
+fi
+
+# ---------------------------------------------------------------------------
+# G-19 / WBHK-03: ClusterRole has no wildcard rules
+# (scoped to webhook-wait-rbac.yaml section only -- subchart ClusterRoles are out of scope)
+# ---------------------------------------------------------------------------
+OUTPUT_WH_19=$("${HELM}" template release-test "${CHART_DIR}" \
+  "${REQUIRED[@]}" 2>&1)
+
+# Extract only the webhook-wait-rbac.yaml section to avoid false positives from subcharts
+RBAC_SECTION_19=$(echo "${OUTPUT_WH_19}" | awk '/# Source: clay\/templates\/webhook-wait-rbac\.yaml/{p=1} /^# Source:/{if(p && !/webhook-wait-rbac/){p=0}} p')
+
+if echo "${RBAC_SECTION_19}" | grep -qF '"*"'; then
+    fail "G-19 WBHK-03: ClusterRole contains no wildcard rules" \
+         "Found '\"*\"' in webhook-wait-rbac output -- ClusterRole must not grant wildcard permissions"
+else
+    pass "G-19 WBHK-03: ClusterRole contains no wildcard rules (no '\"*\"' found in webhook-wait-rbac section)"
 fi
 
 # ---------------------------------------------------------------------------
