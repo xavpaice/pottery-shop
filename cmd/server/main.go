@@ -181,7 +181,8 @@ func main() {
 
 	// Seller approval route — token IS the auth, no Basic Auth required
 	// Token expiry is a future enhancement.
-	mux.HandleFunc("/admin/sellers/approve", authHandler.ApproveSellerByToken)
+	// GET only: this is a link in the approval email; POST is handled by adminMux.
+	mux.HandleFunc("GET /admin/sellers/approve", authHandler.ApproveSellerByToken)
 
 	// Admin routes (behind basic auth)
 	adminMux := http.NewServeMux()
@@ -200,6 +201,9 @@ func main() {
 		}
 	})
 	adminMux.HandleFunc("/admin/images/delete", adminHandler.DeleteImage)
+	adminMux.HandleFunc("/admin/sellers", adminHandler.SellerList)
+	adminMux.HandleFunc("POST /admin/sellers/approve", adminHandler.ApproveSeller)
+	adminMux.HandleFunc("POST /admin/sellers/reject", adminHandler.RejectSeller)
 
 	authAdmin := middleware.BasicAuth(adminUser, adminPass, adminMux)
 	mux.Handle("/admin/", authAdmin)

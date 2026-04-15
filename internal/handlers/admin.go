@@ -220,6 +220,62 @@ func (h *AdminHandler) ToggleSold(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, ref, http.StatusSeeOther)
 }
 
+func (h *AdminHandler) SellerList(w http.ResponseWriter, r *http.Request) {
+	sellers, err := h.Sellers.ListAll(r.Context())
+	if err != nil {
+		log.Printf("Error listing sellers: %v", err)
+		http.Error(w, "Internal server error", 500)
+		return
+	}
+
+	data := map[string]interface{}{
+		"Sellers": sellers,
+	}
+	h.render(w, "admin_sellers.html", data)
+}
+
+func (h *AdminHandler) ApproveSeller(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", 405)
+		return
+	}
+
+	id, err := strconv.ParseInt(r.FormValue("seller_id"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid seller ID", 400)
+		return
+	}
+
+	if err := h.Sellers.SetActive(r.Context(), id, true); err != nil {
+		log.Printf("Error approving seller %d: %v", id, err)
+		http.Error(w, "Error approving seller", 500)
+		return
+	}
+
+	http.Redirect(w, r, "/admin/sellers", http.StatusSeeOther)
+}
+
+func (h *AdminHandler) RejectSeller(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", 405)
+		return
+	}
+
+	id, err := strconv.ParseInt(r.FormValue("seller_id"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid seller ID", 400)
+		return
+	}
+
+	if err := h.Sellers.SetActive(r.Context(), id, false); err != nil {
+		log.Printf("Error deactivating seller %d: %v", id, err)
+		http.Error(w, "Error deactivating seller", 500)
+		return
+	}
+
+	http.Redirect(w, r, "/admin/sellers", http.StatusSeeOther)
+}
+
 func (h *AdminHandler) handleImageUploads(r *http.Request, productID int64) {
 	err := r.ParseMultipartForm(32 << 20) // 32MB max
 	if err != nil {
