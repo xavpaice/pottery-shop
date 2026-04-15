@@ -8,6 +8,7 @@ metadata:
   annotations:
     helm.sh/hook: post-install,post-upgrade
     helm.sh/hook-delete-policy: before-hook-creation
+    helm.sh/hook-weight: "-5"
 spec:
   acme:
     email: {{ .Values.ingress.tls.acme.email }}
@@ -35,6 +36,7 @@ metadata:
   annotations:
     helm.sh/hook: post-install,post-upgrade
     helm.sh/hook-delete-policy: before-hook-creation
+    helm.sh/hook-weight: "0"
 spec:
   secretName: {{ include "clay.tlsSecretName" . }}
   dnsNames:
