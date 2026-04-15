@@ -12,7 +12,7 @@ Requirements for milestone v1.2 (Umbrella Chart). Each maps to roadmap phases.
 - [ ] **CHART-01**: Operator can install CNPG as a subchart dependency controlled by `cloudnative-pg.enabled` toggle
 - [ ] **CHART-02**: Operator can install cert-manager as a subchart dependency controlled by `cert-manager.enabled` toggle
 - [ ] **CHART-03**: Subchart toggles are validated by values.schema.json (type-checked booleans with defaults)
-- [ ] **CHART-04**: `helm dependency update` produces Chart.lock and charts/ tarballs correctly
+- [x] **CHART-04**: `helm dependency update` produces Chart.lock and charts/ tarballs correctly
 
 ### Webhook Readiness (WBHK)
 
@@ -68,7 +68,7 @@ Roadmap created 2026-04-15 — all 19 v1.2 requirements mapped to phases 6–10.
 | CHART-01 | Phase 6 | Pending |
 | CHART-02 | Phase 6 | Pending |
 | CHART-03 | Phase 6 | Pending |
-| CHART-04 | Phase 6 | Pending |
+| CHART-04 | Phase 6 | Complete |
 | WBHK-01 | Phase 7 | Pending |
 | WBHK-02 | Phase 7 | Pending |
 | WBHK-03 | Phase 7 | Pending |

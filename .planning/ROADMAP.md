@@ -31,7 +31,7 @@ Phase 5: CI extension and behavioral test harness
 
 ## Phase Checklist
 
-- [ ] **Phase 6: Subchart Dependencies** — Wire cloudnative-pg and cert-manager as conditional Chart.yaml dependencies with values toggles and schema validation
+- [x] **Phase 6: Subchart Dependencies** — Wire cloudnative-pg and cert-manager as conditional Chart.yaml dependencies with values toggles and schema validation (completed 2026-04-15)
 - [ ] **Phase 7: Webhook Readiness** — Add Jobs and RBAC that block CR creation until each operator's webhook is serving
 - [ ] **Phase 8: Hook Weight Ordering** — Convert cnpg-cluster.yaml to a post-install hook and enforce correct weight sequence across all hook resources
 - [ ] **Phase 9: CI Test Matrix** — Extend CI with values files and assertions covering all four toggle combinations
@@ -51,9 +51,9 @@ Phase 5: CI extension and behavioral test harness
 **Plans**: 3 plans
 
 Plans:
-- [ ] 06-01-PLAN.md — Chart.yaml dependencies block + values.yaml toggle keys (CHART-01, CHART-02)
-- [ ] 06-02-PLAN.md — values.schema.json boolean enforcement + clay.validateDB helper (CHART-03)
-- [ ] 06-03-PLAN.md — helm dependency update, Chart.lock verification, full lint matrix (CHART-04)
+- [x] 06-01-PLAN.md — Chart.yaml dependencies block + values.yaml toggle keys (CHART-01, CHART-02)
+- [x] 06-02-PLAN.md — values.schema.json boolean enforcement + clay.validateDB helper (CHART-03)
+- [x] 06-03-PLAN.md — helm dependency update, Chart.lock verification, full lint matrix (CHART-04)
 
 ### Phase 7: Webhook Readiness
 **Goal**: CNPG and cert-manager CRs can only be created after the corresponding operator webhooks are confirmed serving — Jobs with RBAC enforce the ordering, and the Jobs are skipped when the operator is pre-installed
@@ -102,7 +102,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 6. Subchart Dependencies | v1.2 | 0/3 | Not started | - |
+| 6. Subchart Dependencies | v1.2 | 3/3 | Complete   | 2026-04-15 |
 | 7. Webhook Readiness | v1.2 | 0/? | Not started | - |
 | 8. Hook Weight Ordering | v1.2 | 0/? | Not started | - |
 | 9. CI Test Matrix | v1.2 | 0/? | Not started | - |
