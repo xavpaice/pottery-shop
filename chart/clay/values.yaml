@@ -126,3 +126,21 @@ postgres:
 waitForPostgres:
   image: postgres:16.3-alpine3.20
 
+# -- Subchart operator toggles
+#
+# cloudnative-pg.enabled: install the CNPG operator as a bundled subchart.
+#   Independent of postgres.managed — postgres.managed controls whether a CNPG Cluster CR
+#   is rendered; cloudnative-pg.enabled controls whether the CNPG operator itself is bundled.
+#   Set to false when the CNPG operator is already installed in the cluster (pre-installed mode).
+#   Installs into the same namespace as this release (no namespace override). (D-01, D-02)
+#
+cloudnative-pg:
+  enabled: true   # -- default: true (full umbrella install bundles the operator)
+
+# -- cert-manager.enabled: install cert-manager as a bundled subchart.
+#   Set to false when cert-manager is already installed in the cluster (pre-installed mode).
+#   Installs into the same namespace as this release (no namespace override). (D-01)
+#
+cert-manager:
+  enabled: true   # -- default: true (full umbrella install bundles the operator)
+
