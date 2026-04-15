@@ -108,6 +108,7 @@ func main() {
 
 	publicHandler := &handlers.PublicHandler{
 		Store:     store,
+		Sellers:   sellerStore,
 		Templates: publicTemplates,
 		Session:   sessionMgr,
 		Config:    config,
@@ -115,12 +116,13 @@ func main() {
 
 	adminHandler := &handlers.AdminHandler{
 		Store:     store,
+		Sellers:   sellerStore,
 		Templates: adminTemplates,
 		UploadDir: uploadDir,
 		ThumbDir:  thumbDir,
 	}
 
-	authHandler := handlers.NewAuthHandler(sellerStore, sessionMgr, publicTemplates, config)
+	authHandler := handlers.NewAuthHandler(sellerStore, store, sessionMgr, publicTemplates, config, uploadDir, thumbDir)
 
 	// Mux
 	mux := http.NewServeMux()
@@ -150,6 +152,21 @@ func main() {
 	})
 	mux.HandleFunc("/logout", authHandler.Logout)
 	mux.HandleFunc("/dashboard", authHandler.Dashboard)
+
+	// Seller dashboard product routes (guarded by requireSeller inside each handler)
+	mux.HandleFunc("/dashboard/products", authHandler.DashboardProducts)
+	mux.HandleFunc("/dashboard/products/new", authHandler.DashboardNewProduct)
+	mux.HandleFunc("/dashboard/products/create", authHandler.DashboardCreateProduct)
+	mux.HandleFunc("/dashboard/products/update", authHandler.DashboardUpdateProduct)
+	mux.HandleFunc("/dashboard/products/delete", authHandler.DashboardDeleteProduct)
+	mux.HandleFunc("/dashboard/products/toggle-sold", authHandler.DashboardToggleSold)
+	mux.HandleFunc("/dashboard/products/", func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/edit") {
+			authHandler.DashboardEditProduct(w, r)
+		} else {
+			http.NotFound(w, r)
+		}
+	})
 
 	// Public routes
 	mux.HandleFunc("/", publicHandler.Home)

@@ -1,0 +1,73 @@
+{{define "dashboard_product_form.html"}}
+{{template "header" .}}
+
+<div class="dashboard">
+    <nav class="dashboard-nav">
+        <ul>
+            <li><a href="/dashboard">Dashboard</a></li>
+            <li><a href="/dashboard/products">My Products</a></li>
+        </ul>
+    </nav>
+
+    <h2>{{if .IsNew}}New Product{{else}}Edit: {{.Product.Title}}{{end}}</h2>
+
+    <form method="POST" action="{{if .IsNew}}/dashboard/products/create{{else}}/dashboard/products/update{{end}}" enctype="multipart/form-data" class="product-form">
+        {{if not .IsNew}}
+        <input type="hidden" name="id" value="{{.Product.ID}}">
+        {{end}}
+
+        <div class="form-group">
+            <label for="title">Title *</label>
+            <input type="text" id="title" name="title" value="{{.Product.Title}}" required>
+        </div>
+
+        <div class="form-group">
+            <label for="description">Description</label>
+            <textarea id="description" name="description" rows="6">{{.Product.Description}}</textarea>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="price">Price ($)</label>
+                <input type="number" id="price" name="price" value="{{printf "%.2f" .Product.Price}}" step="0.01" min="0">
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="is_sold" {{if .Product.IsSold}}checked{{end}}>
+                    Mark as Sold
+                </label>
+            </div>
+        </div>
+
+        {{if not .IsNew}}
+        {{if .Product.Images}}
+        <div class="form-group">
+            <label>Current Images</label>
+            <div class="current-images">
+                {{range .Product.Images}}
+                <div class="current-image">
+                    <img src="/uploads/thumbnails/{{.ThumbnailFn}}" alt="">
+                    <button type="button" class="btn-remove-image" title="Remove image"
+                        onclick="if(confirm('Remove this image?')){var f=document.createElement('form');f.method='POST';f.action='/admin/images/delete';var i=document.createElement('input');i.type='hidden';i.name='image_id';i.value='{{.ID}}';f.appendChild(i);document.body.appendChild(f);f.submit();}">x</button>
+                </div>
+                {{end}}
+            </div>
+        </div>
+        {{end}}
+        {{end}}
+
+        <div class="form-group">
+            <label for="images">{{if .IsNew}}Add Images{{else}}Add More Images{{end}} (max 5 total, jpg/png)</label>
+            <input type="file" id="images" name="images" multiple accept="image/jpeg,image/png,image/webp">
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">{{if .IsNew}}Create Product{{else}}Save Changes{{end}}</button>
+            <a href="/dashboard/products" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+{{template "footer" .}}
+{{end}}

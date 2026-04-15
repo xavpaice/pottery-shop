@@ -14,6 +14,7 @@ import (
 
 type PublicHandler struct {
 	Store     *models.ProductStore
+	Sellers   *models.SellerStore
 	Templates *template.Template
 	Session   *middleware.SessionManager
 	Config    *Config
@@ -225,12 +226,26 @@ func (h *PublicHandler) PlaceOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	body += "Items:\n"
 	body += "------\n"
+
+	// Determine the order email recipient: use the first cart item's seller, fall back to global ORDER_EMAIL.
+	toEmail := h.Config.OrderEmail
+	if len(cart.Items) > 0 {
+		product, perr := h.Store.GetByID(cart.Items[0].ProductID)
+		if perr == nil && product.SellerID != 0 {
+			seller, serr := h.Sellers.GetByID(r.Context(), product.SellerID)
+			if serr == nil && seller != nil && seller.OrderEmail != "" {
+				toEmail = seller.OrderEmail
+			}
+		}
+	}
+
 	for _, item := range cart.Items {
 		body += fmt.Sprintf("- %s — $%.2f\n  %s/product/%d\n", item.Title, item.Price, h.Config.BaseURL, item.ProductID)
 	}
 	body += fmt.Sprintf("\nTotal: $%.2f\n", cart.Total())
 
-	err := h.sendEmail(
+	err := h.sendEmailTo(
+		toEmail,
 		fmt.Sprintf("New Pottery Order from %s", buyerName),
 		body,
 	)
@@ -257,14 +272,14 @@ func (h *PublicHandler) OrderConfirmed(w http.ResponseWriter, r *http.Request) {
 	h.render(w, "order_confirmed.html", data)
 }
 
-func (h *PublicHandler) sendEmail(subject, body string) error {
+// sendEmailTo sends an email to the given recipient address.
+func (h *PublicHandler) sendEmailTo(to, subject, body string) error {
 	if h.Config.SMTPHost == "" {
-		log.Printf("SMTP not configured. Email would be:\nTo: %s\nSubject: %s\n%s", h.Config.OrderEmail, subject, body)
+		log.Printf("SMTP not configured. Email would be:\nTo: %s\nSubject: %s\n%s", to, subject, body)
 		return nil
 	}
 
 	from := h.Config.SMTPFrom
-	to := h.Config.OrderEmail
 	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n%s",
 		from, to, subject, body)
 

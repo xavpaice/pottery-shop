@@ -88,7 +88,7 @@ func setupTestStore(t *testing.T) *ProductStore {
 func createSampleProduct(t *testing.T, store *ProductStore, title string, price float64) *Product {
 	t.Helper()
 	p := &Product{Title: title, Description: "A test product", Price: price}
-	if err := store.Create(p); err != nil {
+	if err := store.Create(p, 0); err != nil {
 		t.Fatalf("create product: %v", err)
 	}
 	return p
