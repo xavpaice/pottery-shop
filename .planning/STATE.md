@@ -1,3 +1,19 @@
+---
+gsd_state_version: 1.0
+milestone: v1.2
+milestone_name: Umbrella Chart
+status: executing
+stopped_at: Phase 6 context gathered (discuss mode)
+last_updated: "2026-04-15T02:13:57.618Z"
+last_activity: 2026-04-15 -- Phase 06 execution started
+progress:
+  total_phases: 5
+  completed_phases: 0
+  total_plans: 3
+  completed_plans: 0
+  percent: 0
+---
+
 # State: Clay.nz Pottery Shop
 
 ## Project Reference
@@ -5,20 +21,21 @@
 See: .planning/PROJECT.md (updated 2026-04-15)
 
 **Core value:** The Helm chart deploys the full stack — app, database, and certificates — in a single `helm install`, with no operator pre-install required.
-**Current focus:** Phase 6 — Subchart Dependencies (v1.2 Umbrella Chart)
+**Current focus:** Phase 06 — subchart-dependencies
 
 ## Current Position
 
-Phase: 6 of 10 (Subchart Dependencies)
-Plan: — (roadmap created, ready to plan)
-Status: Ready to plan
-Last activity: 2026-04-15 - Completed quick task 260415-ixx: health check endpoints
+Phase: 06 (subchart-dependencies) — EXECUTING
+Plan: 1 of 3
+Status: Executing Phase 06
+Last activity: 2026-04-15 -- Phase 06 execution started
 
 Progress: [░░░░░░░░░░] 0% (0 of 5 phases)
 
 ## Performance Metrics
 
 **Velocity:**
+
 - Total plans completed: 0 (v1.2)
 - Average duration: — (no v1.2 plans yet)
 - Total execution time: —
@@ -55,6 +72,6 @@ Progress: [░░░░░░░░░░] 0% (0 of 5 phases)
 
 ## Session Continuity
 
-Last session: 2026-04-15
-Stopped at: v1.2 roadmap created — 5 phases (6–10), 19 requirements mapped
-Resume file: None
+Last session: 2026-04-15T01:57:35.563Z
+Stopped at: Phase 6 context gathered (discuss mode)
+Resume file: .planning/phases/06-subchart-dependencies/06-CONTEXT.md
