@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Behavioral tests for chart/clay Helm template rendering (Phase 3: values-and-ingress-refactor, Phase 4: cert-manager-cr-templates, Phase 7: webhook-readiness)
-# Requirements: INGR-01, INGR-02, INGR-03, INGR-04, TLS-01, TLS-02, TLS-03, SC-5, WBHK-01, WBHK-02, WBHK-03, WBHK-04
+# Behavioral tests for chart/clay Helm template rendering (Phase 3: values-and-ingress-refactor, Phase 4: cert-manager-cr-templates, Phase 7: webhook-readiness, Phase 8: hook-weight-ordering)
+# Requirements: INGR-01, INGR-02, INGR-03, INGR-04, TLS-01, TLS-02, TLS-03, SC-5, WBHK-01, WBHK-02, WBHK-03, WBHK-04, HOOK-01, HOOK-02
 # Run from any directory; CHART_DIR is resolved relative to this script's location.
 set -euo pipefail
 
@@ -458,6 +458,94 @@ if echo "${RBAC_SECTION_19}" | grep -qF '"*"'; then
          "Found '\"*\"' in webhook-wait-rbac output -- ClusterRole must not grant wildcard permissions"
 else
     pass "G-19 WBHK-03: ClusterRole contains no wildcard rules (no '\"*\"' found in webhook-wait-rbac section)"
+fi
+
+# ---------------------------------------------------------------------------
+# G-20 / HOOK-01: cnpg-cluster.yaml carries post-install,post-upgrade hook at weight -10
+# ---------------------------------------------------------------------------
+OUTPUT_G20=$("${HELM}" template release-test "${CHART_DIR}" \
+  "${REQUIRED[@]}" 2>&1)
+
+CLUSTER_SECTION=$(echo "${OUTPUT_G20}" | awk \
+  '/# Source: clay\/templates\/cnpg-cluster\.yaml/{p=1} \
+   /^# Source:/{if(p && !/cnpg-cluster/){p=0}} p')
+
+if echo "${CLUSTER_SECTION}" | grep -q '"helm.sh/hook": post-install,post-upgrade'; then
+    pass "G-20a HOOK-01: cnpg-cluster carries helm.sh/hook: post-install,post-upgrade"
+else
+    fail "G-20a HOOK-01: cnpg-cluster carries helm.sh/hook: post-install,post-upgrade" \
+         "Expected hook annotation in cnpg-cluster section"
+fi
+
+if echo "${CLUSTER_SECTION}" | grep -q '"helm.sh/hook-weight": "-10"'; then
+    pass "G-20b HOOK-01: cnpg-cluster carries hook-weight -10"
+else
+    fail "G-20b HOOK-01: cnpg-cluster carries hook-weight -10" \
+         "Expected weight -10 in cnpg-cluster section"
+fi
+
+if echo "${CLUSTER_SECTION}" | grep -q '"helm.sh/hook-delete-policy": before-hook-creation'; then
+    pass "G-20c HOOK-01: cnpg-cluster carries hook-delete-policy before-hook-creation"
+else
+    fail "G-20c HOOK-01: cnpg-cluster carries hook-delete-policy before-hook-creation" \
+         "Expected before-hook-creation delete-policy in cnpg-cluster section"
+fi
+
+# ---------------------------------------------------------------------------
+# G-21 / HOOK-02: webhook-wait-rbac carries hook-weight -25 (RBAC tier)
+# ---------------------------------------------------------------------------
+RBAC_SECTION_21=$(echo "${OUTPUT_G20}" | awk \
+  '/# Source: clay\/templates\/webhook-wait-rbac\.yaml/{p=1} \
+   /^# Source:/{if(p && !/webhook-wait-rbac/){p=0}} p')
+
+RBAC_W25_COUNT=$(echo "${RBAC_SECTION_21}" | grep -c '"helm.sh/hook-weight": "-25"' || true)
+
+if [ "${RBAC_W25_COUNT}" -ge 1 ]; then
+    pass "G-21 HOOK-02: webhook-wait-rbac carries hook-weight -25 (got ${RBAC_W25_COUNT} resources)"
+else
+    fail "G-21 HOOK-02: webhook-wait-rbac carries hook-weight -25" \
+         "Expected at least 1 occurrence of hook-weight -25 in webhook-wait-rbac section, got ${RBAC_W25_COUNT}"
+fi
+
+# ---------------------------------------------------------------------------
+# G-22 / HOOK-02: webhook-wait-jobs carry hook-weight -20 (Job tier)
+# ---------------------------------------------------------------------------
+JOBS_SECTION_22=$(echo "${OUTPUT_G20}" | awk \
+  '/# Source: clay\/templates\/webhook-wait-jobs\.yaml/{p=1} \
+   /^# Source:/{if(p && !/webhook-wait-jobs/){p=0}} p')
+
+JOBS_W20_COUNT=$(echo "${JOBS_SECTION_22}" | grep -c '"helm.sh/hook-weight": "-20"' || true)
+
+if [ "${JOBS_W20_COUNT}" -ge 2 ]; then
+    pass "G-22 HOOK-02: webhook-wait-jobs carry hook-weight -20 (got ${JOBS_W20_COUNT} resources)"
+else
+    fail "G-22 HOOK-02: webhook-wait-jobs carry hook-weight -20" \
+         "Expected at least 2 occurrences of hook-weight -20 in webhook-wait-jobs section, got ${JOBS_W20_COUNT}"
+fi
+
+# ---------------------------------------------------------------------------
+# G-23 / HOOK-02: cert-manager-letsencrypt resources carry hook-weights in range [-10, 5]
+# ---------------------------------------------------------------------------
+OUTPUT_G23=$("${HELM}" template release-test "${CHART_DIR}" \
+  "${REQUIRED[@]}" \
+  "${LETSENCRYPT_INGRESS[@]}" 2>&1)
+
+LE_SECTION=$(echo "${OUTPUT_G23}" | awk \
+  '/# Source: clay\/templates\/cert-manager-letsencrypt\.yaml/{p=1} \
+   /^# Source:/{if(p && !/cert-manager-letsencrypt/){p=0}} p')
+
+if echo "${LE_SECTION}" | grep -q 'helm.sh/hook-weight: "-5"'; then
+    pass "G-23a HOOK-02: letsencrypt ClusterIssuer carries hook-weight -5"
+else
+    fail "G-23a HOOK-02: letsencrypt ClusterIssuer carries hook-weight -5" \
+         "Expected 'helm.sh/hook-weight: \"-5\"' in cert-manager-letsencrypt section"
+fi
+
+if echo "${LE_SECTION}" | grep -q 'helm.sh/hook-weight: "0"'; then
+    pass "G-23b HOOK-02: letsencrypt Certificate carries hook-weight 0"
+else
+    fail "G-23b HOOK-02: letsencrypt Certificate carries hook-weight 0" \
+         "Expected 'helm.sh/hook-weight: \"0\"' in cert-manager-letsencrypt section"
 fi
 
 # ---------------------------------------------------------------------------
