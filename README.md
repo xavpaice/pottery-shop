@@ -337,7 +337,9 @@ Three GitHub Actions workflows run on PRs and pushes to `main`:
 
 **`test.yml`** — runs on every PR and push:
 - `go vet` + `make test` (testcontainers-go Postgres) + `make build` with `CGO_ENABLED=0`
-- Helm lint + `helm template` render check in both managed and external modes
+- Helm lint + `helm template` across all four operator toggle combinations: bundled (both operators), pre-installed (both disabled), external-db (minimal, no operators), and mixed (CNPG bundled, cert-manager pre-installed)
+- TLS mode linting (letsencrypt, selfsigned, custom)
+- Behavioral assertion tests (`helm-template-test.sh`)
 
 **`integration-test.yml`** — runs on PRs (non-fork only):
 - Builds and pushes a PR-tagged image to GHCR
