@@ -108,7 +108,7 @@ Plans:
 | 9. CI Test Matrix | v1.2 | 0/? | Not started | - |
 | 10. Documentation | v1.2 | 0/? | Not started | - |
 | 11. Seller Accounts and Auth | v1.3 | 0/3 | Not started | - |
-| 12. Product Ownership | v1.3 | 0/2 | Not started | - |
+| 12. Product Ownership | v1.3 | 0/2 | Planned    |  |
 | 13. Gallery and Seller Profiles | v1.3 | 0/2 | Not started | - |
 | 14. Firing Logs CRUD | v1.3 | 0/3 | Not started | - |
 | 15. Temperature Graphs | v1.3 | 0/2 | Not started | - |
