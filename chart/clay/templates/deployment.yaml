@@ -1,7 +1,5 @@
 {{- include "clay.validateSecrets" . }}
-{{- if and (not .Values.postgres.managed) (not .Values.postgres.external.dsn) }}
-  {{- fail "Either postgres.managed must be true or postgres.external.dsn must be set" }}
-{{- end }}
+{{- include "clay.validateDB" . }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
