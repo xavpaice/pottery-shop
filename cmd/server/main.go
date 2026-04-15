@@ -60,6 +60,7 @@ func main() {
 	}
 
 	store := models.NewProductStore(db)
+	sellerStore := models.NewSellerStore(pool)
 
 	// Templates
 	funcMap := template.FuncMap{
@@ -104,6 +105,8 @@ func main() {
 		ThumbDir:  thumbDir,
 	}
 
+	authHandler := handlers.NewAuthHandler(sellerStore, sessionMgr, publicTemplates, config)
+
 	// Mux
 	mux := http.NewServeMux()
 
@@ -114,6 +117,24 @@ func main() {
 	// Health endpoints (registered before / catch-all)
 	mux.HandleFunc("/healthz", handlers.Healthz)
 	mux.HandleFunc("/readyz", handlers.ReadyzHandler(db))
+
+	// Seller auth routes (no Basic Auth — cookie-session based)
+	mux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			authHandler.Login(w, r)
+		} else {
+			authHandler.ShowLogin(w, r)
+		}
+	})
+	mux.HandleFunc("/register", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			authHandler.Register(w, r)
+		} else {
+			authHandler.ShowRegister(w, r)
+		}
+	})
+	mux.HandleFunc("/logout", authHandler.Logout)
+	mux.HandleFunc("/dashboard", authHandler.Dashboard)
 
 	// Public routes
 	mux.HandleFunc("/", publicHandler.Home)

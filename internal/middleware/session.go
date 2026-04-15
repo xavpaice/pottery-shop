@@ -19,6 +19,7 @@ const SessionKey contextKey = "session"
 type SessionData struct {
 	CartJSON string `json:"cart"`
 	Flash    string `json:"flash"`
+	SellerID int64  `json:"seller_id,omitempty"`
 }
 
 type SessionManager struct {

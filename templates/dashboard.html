@@ -1,0 +1,33 @@
+{{define "dashboard.html"}}
+{{template "header" .}}
+
+<div class="dashboard">
+    <h2>Welcome, {{.Seller.Name}}</h2>
+
+    {{if .Flash}}
+    <div class="flash-message">
+        <div class="container">{{.Flash}}</div>
+    </div>
+    {{end}}
+
+    <p>This is your seller dashboard on Clay.nz.</p>
+
+    <nav class="dashboard-nav">
+        <ul>
+            <li><a href="/dashboard">Dashboard</a></li>
+            <li><a href="/admin">Product Management</a></li>
+        </ul>
+    </nav>
+
+    <div class="dashboard-info">
+        <p><strong>Email:</strong> {{.Seller.Email}}</p>
+        {{if .Seller.Bio}}<p><strong>Bio:</strong> {{.Seller.Bio}}</p>{{end}}
+    </div>
+
+    <form method="POST" action="/logout" style="margin-top: 2rem;">
+        <button type="submit" class="btn">Log Out</button>
+    </form>
+</div>
+
+{{template "footer" .}}
+{{end}}
