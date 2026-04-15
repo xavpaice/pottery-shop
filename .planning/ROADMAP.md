@@ -48,7 +48,12 @@ Phase 5: CI extension and behavioral test harness
   2. `chart/clay/values.yaml` has top-level `cloudnative-pg.enabled` and `cert-manager.enabled` boolean keys with defaults
   3. `helm dependency update chart/clay` exits zero and produces `Chart.lock` plus tarballs in `charts/`
   4. `helm schema check` (or `helm lint`) rejects a values file that sets either toggle to a non-boolean
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 06-01-PLAN.md — Chart.yaml dependencies block + values.yaml toggle keys (CHART-01, CHART-02)
+- [ ] 06-02-PLAN.md — values.schema.json boolean enforcement + clay.validateDB helper (CHART-03)
+- [ ] 06-03-PLAN.md — helm dependency update, Chart.lock verification, full lint matrix (CHART-04)
 
 ### Phase 7: Webhook Readiness
 **Goal**: CNPG and cert-manager CRs can only be created after the corresponding operator webhooks are confirmed serving — Jobs with RBAC enforce the ordering, and the Jobs are skipped when the operator is pre-installed
@@ -97,7 +102,7 @@ Phase 5: CI extension and behavioral test harness
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 6. Subchart Dependencies | v1.2 | 0/? | Not started | - |
+| 6. Subchart Dependencies | v1.2 | 0/3 | Not started | - |
 | 7. Webhook Readiness | v1.2 | 0/? | Not started | - |
 | 8. Hook Weight Ordering | v1.2 | 0/? | Not started | - |
 | 9. CI Test Matrix | v1.2 | 0/? | Not started | - |
