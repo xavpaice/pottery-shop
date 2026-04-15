@@ -68,7 +68,7 @@ Plans:
 **UI hint**: no
 
 Plans:
-- [ ] 07-01-PLAN.md — RBAC + Jobs webhook-wait templates (WBHK-01, WBHK-02, WBHK-03, WBHK-04)
+- [x] 07-01-PLAN.md — RBAC + Jobs webhook-wait templates (WBHK-01, WBHK-02, WBHK-03, WBHK-04)
 - [ ] 07-02-PLAN.md — Behavioral test groups G-15 through G-19 for webhook readiness (WBHK-01, WBHK-02, WBHK-03, WBHK-04)
 
 ### Phase 8: Hook Weight Ordering

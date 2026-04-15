@@ -172,6 +172,7 @@ func main() {
 	mux.HandleFunc("/", publicHandler.Home)
 	mux.HandleFunc("/gallery", publicHandler.Gallery)
 	mux.HandleFunc("/product/", publicHandler.ProductDetail)
+	mux.HandleFunc("GET /seller/{id}", publicHandler.SellerProfile)
 	mux.HandleFunc("/cart", publicHandler.ViewCart)
 	mux.HandleFunc("/cart/add", publicHandler.AddToCart)
 	mux.HandleFunc("/cart/remove", publicHandler.RemoveFromCart)
