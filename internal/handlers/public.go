@@ -113,6 +113,52 @@ func (h *PublicHandler) ProductDetail(w http.ResponseWriter, r *http.Request) {
 	h.render(w, "product.html", data)
 }
 
+func (h *PublicHandler) SellerProfile(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	ctx := r.Context()
+	seller, err := h.Sellers.GetByID(ctx, id)
+	if err != nil || seller == nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	allProducts, err := h.Store.ListBySeller(ctx, id)
+	if err != nil {
+		log.Printf("Error listing products for seller %d: %v", id, err)
+		http.Error(w, "Internal server error", 500)
+		return
+	}
+
+	var available, pastWork []models.Product
+	for _, p := range allProducts {
+		if p.IsSold {
+			pastWork = append(pastWork, p)
+		} else {
+			available = append(available, p)
+		}
+	}
+
+	session := middleware.GetSession(r)
+	cart := models.CartFromJSON(session.CartJSON)
+
+	data := map[string]interface{}{
+		"Seller":    seller,
+		"Available": available,
+		"PastWork":  pastWork,
+		"CartCount": cart.Count(),
+		"Flash":     session.Flash,
+	}
+	session.Flash = ""
+
+	h.render(w, "seller_profile.html", data)
+}
+
 func (h *PublicHandler) AddToCart(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", 405)
