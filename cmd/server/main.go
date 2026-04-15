@@ -188,6 +188,9 @@ func main() {
 		}
 	})
 
+	// JSON API routes (auth enforced inside handler — returns JSON errors, not HTML redirects)
+	mux.HandleFunc("GET /api/firings/{id}/readings", firingLogHandler.ReadingsAPI)
+
 	// Public routes
 	mux.HandleFunc("/", publicHandler.Home)
 	mux.HandleFunc("/gallery", publicHandler.Gallery)

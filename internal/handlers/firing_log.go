@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
@@ -247,6 +248,70 @@ func (h *FiringLogHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, "/dashboard/firings", http.StatusSeeOther)
+}
+
+// readingsResponse is the JSON shape returned by ReadingsAPI.
+type readingsResponse struct {
+	Readings []readingItem `json:"readings"`
+}
+
+// readingItem represents a single temperature reading in the JSON API response.
+type readingItem struct {
+	ElapsedMinutes int     `json:"elapsed_minutes"`
+	Temperature    float64 `json:"temperature"`
+	GasSetting     string  `json:"gas_setting"`
+	FlueSetting    string  `json:"flue_setting"`
+}
+
+// ReadingsAPI handles GET /api/firings/{id}/readings — returns JSON readings for a firing log.
+// Authentication is enforced via session SellerID (returns JSON 401/403 rather than HTML redirects).
+func (h *FiringLogHandler) ReadingsAPI(w http.ResponseWriter, r *http.Request) {
+	session := middleware.GetSession(r)
+	if session.SellerID == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	// Parse {id} from path: /api/firings/{id}/readings
+	path := strings.TrimPrefix(r.URL.Path, "/api/firings/")
+	path = strings.TrimSuffix(path, "/readings")
+	id, err := strconv.ParseInt(path, 10, 64)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid id"})
+		return
+	}
+
+	readings, err := h.logs.GetReadingsForAPI(r.Context(), id, session.SellerID)
+	if err != nil {
+		log.Printf("ReadingsAPI: error fetching readings for log %d: %v", id, err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "internal server error"})
+		return
+	}
+	if readings == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{"error": "forbidden"})
+		return
+	}
+
+	items := make([]readingItem, len(readings))
+	for i, r := range readings {
+		items[i] = readingItem{
+			ElapsedMinutes: r.ElapsedMinutes,
+			Temperature:    r.Temperature,
+			GasSetting:     r.GasSetting,
+			FlueSetting:    r.FlueSetting,
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(readingsResponse{Readings: items})
 }
 
 // parseReadings reads readings[N][field] values from the form until no more rows are found.
