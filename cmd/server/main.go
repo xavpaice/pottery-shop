@@ -111,6 +111,10 @@ func main() {
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	mux.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadDir))))
 
+	// Health endpoints (registered before / catch-all)
+	mux.HandleFunc("/healthz", handlers.Healthz)
+	mux.HandleFunc("/readyz", handlers.ReadyzHandler(db))
+
 	// Public routes
 	mux.HandleFunc("/", publicHandler.Home)
 	mux.HandleFunc("/gallery", publicHandler.Gallery)
