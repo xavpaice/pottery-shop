@@ -287,6 +287,21 @@
           "description": "true = bundle and install cert-manager as a subchart; false = operator is pre-installed"
         }
       }
+    },
+    "features": {
+      "type": "object",
+      "description": "Optional feature flags — set to false to disable. Defaults are true to preserve existing behaviour on upgrade.",
+      "properties": {
+        "firingLogs": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable seller kiln-session tracking (firing logs + temperature readings). Planned for license gating in a future release."
+            }
+          }
+        }
+      }
     }
   },
   "required": ["image", "secrets"]

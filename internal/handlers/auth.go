@@ -21,13 +21,14 @@ import (
 
 // AuthHandler handles seller authentication: login, register, logout, dashboard, and approval.
 type AuthHandler struct {
-	sellers   *models.SellerStore
-	products  *models.ProductStore
-	sessions  *middleware.SessionManager
-	templates *template.Template
-	config    *Config
-	uploadDir string
-	thumbDir  string
+	sellers          *models.SellerStore
+	products         *models.ProductStore
+	sessions         *middleware.SessionManager
+	templates        *template.Template
+	config           *Config
+	uploadDir        string
+	thumbDir         string
+	FiringLogsEnabled bool
 }
 
 // NewAuthHandler creates a new AuthHandler.
@@ -165,9 +166,10 @@ func (h *AuthHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]interface{}{
-		"PageTitle": "Seller Dashboard",
-		"Seller":    seller,
-		"Flash":     session.Flash,
+		"PageTitle":         "Seller Dashboard",
+		"Seller":            seller,
+		"Flash":             session.Flash,
+		"FiringLogsEnabled": h.FiringLogsEnabled,
 	}
 	session.Flash = ""
 	h.render(w, "dashboard.html", data)

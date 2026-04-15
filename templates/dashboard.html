@@ -16,7 +16,7 @@
         <ul>
             <li><a href="/dashboard">Dashboard</a></li>
             <li><a href="/dashboard/products">My Products</a></li>
-            <li><a href="/dashboard/firings">Firing Logs</a></li>
+            {{if .FiringLogsEnabled}}<li><a href="/dashboard/firings">Firing Logs</a></li>{{end}}
         </ul>
     </nav>
 

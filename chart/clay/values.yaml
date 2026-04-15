@@ -108,6 +108,13 @@ nodeSelector: {}
 tolerations: []
 affinity: {}
 
+# -- Feature flags
+# Features listed here can be toggled per deployment. Defaults are "on" to preserve
+# existing behaviour for upgrades. Set to false to disable.
+features:
+  firingLogs:
+    enabled: true   # Seller kiln-session tracking (firing logs + temperature readings)
+
 # -- Postgres configuration (managed via CNPG or external DSN)
 postgres:
   managed: true
