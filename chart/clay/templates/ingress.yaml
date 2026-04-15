@@ -1,35 +1,38 @@
 {{- if .Values.ingress.enabled }}
+{{- include "clay.validateIngress" . }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ include "clay.fullname" . }}
   labels:
     {{- include "clay.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
   annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- if eq .Values.ingress.className "traefik" }}
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    {{- end }}
+    {{- if eq .Values.ingress.tls.mode "letsencrypt" }}
+    acme.cert-manager.io/http01-edit-in-place: "true"
+    cert-manager.io/cluster-issuer: {{ include "clay.fullname" . }}-letsencrypt
+    {{- end }}
 spec:
   {{- if .Values.ingress.className }}
   ingressClassName: {{ .Values.ingress.className }}
   {{- end }}
   rules:
-    {{- range .Values.ingress.hosts }}
-    - host: {{ .host | quote }}
+    - host: {{ .Values.ingress.host | quote }}
       http:
         paths:
-          {{- range .paths }}
-          - path: {{ .path }}
-            pathType: {{ .pathType }}
+          - path: /
+            pathType: Prefix
             backend:
               service:
-                name: {{ include "clay.fullname" $ }}
+                name: {{ include "clay.fullname" . }}
                 port:
-                  number: {{ $.Values.service.port }}
-          {{- end }}
-    {{- end }}
-  {{- with .Values.ingress.tls }}
+                  number: {{ .Values.service.port }}
+  {{- if .Values.ingress.tls.mode }}
   tls:
-    {{- toYaml . | nindent 4 }}
+    - secretName: {{ include "clay.tlsSecretName" . }}
+      hosts:
+        - {{ .Values.ingress.host | quote }}
   {{- end }}
 {{- end }}

@@ -50,3 +50,24 @@ jobs:
 
       - name: Template (external mode)
         run: helm template clay chart/clay/ --values chart/clay/ci/external-values.yaml
+
+      - name: Lint (TLS — letsencrypt mode)
+        run: helm lint chart/clay/ --values chart/clay/ci/tls-letsencrypt-values.yaml
+
+      - name: Template (TLS — letsencrypt mode)
+        run: helm template clay chart/clay/ --values chart/clay/ci/tls-letsencrypt-values.yaml
+
+      - name: Lint (TLS — selfsigned mode)
+        run: helm lint chart/clay/ --values chart/clay/ci/tls-selfsigned-values.yaml
+
+      - name: Template (TLS — selfsigned mode)
+        run: helm template clay chart/clay/ --values chart/clay/ci/tls-selfsigned-values.yaml
+
+      - name: Lint (TLS — custom mode)
+        run: helm lint chart/clay/ --values chart/clay/ci/tls-custom-values.yaml
+
+      - name: Template (TLS — custom mode)
+        run: helm template clay chart/clay/ --values chart/clay/ci/tls-custom-values.yaml
+
+      - name: Behavioral tests (INGR-01..04, TLS-01..03)
+        run: chart/tests/helm-template-test.sh

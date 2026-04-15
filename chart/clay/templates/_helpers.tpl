@@ -52,10 +52,50 @@ Chart label
 Validate required secrets — fail fast at render time rather than at runtime.
 */}}
 {{- define "clay.validateSecrets" -}}
-{{- if not .Values.secrets.ADMIN_PASS }}
-  {{- fail "secrets.ADMIN_PASS must be set" }}
+{{- if not (.Values.secrets.ADMIN_PASS | trim) }}
+  {{- fail "secrets.ADMIN_PASS must be set (value must not be blank)" }}
 {{- end }}
-{{- if not .Values.secrets.SESSION_SECRET }}
-  {{- fail "secrets.SESSION_SECRET must be set" }}
+{{- if not (.Values.secrets.SESSION_SECRET | trim) }}
+  {{- fail "secrets.SESSION_SECRET must be set (value must not be blank)" }}
 {{- end }}
+{{- end }}
+
+{{/*
+Validate required ingress values -- fail fast at render time.
+Called from ingress.yaml inside the {{- if .Values.ingress.enabled }} guard.
+*/}}
+{{- define "clay.validateIngress" -}}
+{{- if not (.Values.ingress.host | trim) }}
+  {{- fail "ingress.host must be set (value must not be blank)" }}
+{{- end }}
+{{- if not (.Values.ingress.tls.mode | trim) }}
+  {{- fail "ingress.tls.mode must be set (letsencrypt|selfsigned|custom)" }}
+{{- end }}
+{{- if and (ne .Values.ingress.tls.mode "letsencrypt") (ne .Values.ingress.tls.mode "selfsigned") (ne .Values.ingress.tls.mode "custom") }}
+  {{- fail "ingress.tls.mode must be one of: letsencrypt, selfsigned, custom" }}
+{{- end }}
+{{- if eq .Values.ingress.tls.mode "letsencrypt" }}
+  {{- if not .Values.ingress.tls.acme.email }}
+    {{- fail "ingress.tls.acme.email required for letsencrypt mode" }}
+  {{- end }}
+{{- end }}
+{{- if eq .Values.ingress.tls.mode "custom" }}
+  {{- if not .Values.ingress.tls.secretName }}
+    {{- fail "ingress.tls.secretName required for custom mode" }}
+  {{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+Return the TLS secret name for the Ingress resource.
+Custom mode: user-provided secretName from values.
+Letsencrypt/selfsigned: derived from release fullname.
+Used by both ingress.yaml (this phase) and Certificate CR (Phase 4).
+*/}}
+{{- define "clay.tlsSecretName" -}}
+{{- if eq .Values.ingress.tls.mode "custom" -}}
+  {{- .Values.ingress.tls.secretName -}}
+{{- else -}}
+  {{- printf "%s-tls" (include "clay.fullname" .) -}}
+{{- end -}}
 {{- end }}

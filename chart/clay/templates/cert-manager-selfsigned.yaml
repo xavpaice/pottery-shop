@@ -1,0 +1,68 @@
+{{- if and .Values.ingress.enabled (eq .Values.ingress.tls.mode "selfsigned") }}
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ include "clay.fullname" . }}-selfsigned-root
+  labels:
+    {{- include "clay.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+    helm.sh/hook-weight: "-10"
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "clay.fullname" . }}-ca
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "clay.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+    helm.sh/hook-weight: "-5"
+spec:
+  isCA: true
+  commonName: {{ include "clay.fullname" . }}-ca
+  secretName: {{ include "clay.fullname" . }}-ca-tls
+  issuerRef:
+    name: {{ include "clay.fullname" . }}-selfsigned-root
+    kind: ClusterIssuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ include "clay.fullname" . }}-selfsigned-ca
+  labels:
+    {{- include "clay.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+    helm.sh/hook-weight: "0"
+spec:
+  ca:
+    secretName: {{ include "clay.fullname" . }}-ca-tls
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "clay.fullname" . }}-tls-cert
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "clay.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+    helm.sh/hook-weight: "5"
+spec:
+  secretName: {{ include "clay.tlsSecretName" . }}
+  dnsNames:
+    - {{ .Values.ingress.host }}
+  issuerRef:
+    name: {{ include "clay.fullname" . }}-selfsigned-ca
+    kind: ClusterIssuer
+    group: cert-manager.io
+{{- end }}
