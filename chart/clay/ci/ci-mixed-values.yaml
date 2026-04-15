@@ -1,0 +1,20 @@
+# CI test values for mixed mode (CNPG bundled, cert-manager pre-installed)
+secrets:
+  ADMIN_PASS: "ci-test-only"
+  SESSION_SECRET: "ci-test-session-secret-not-for-production"
+
+postgres:
+  managed: true
+  cluster:
+    instances: 1
+    storage:
+      size: 1Gi
+      storageClass: ""
+  external:
+    dsn: ""
+
+cloudnative-pg:
+  enabled: true
+
+cert-manager:
+  enabled: false
