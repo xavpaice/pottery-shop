@@ -195,6 +195,20 @@
         "periodSeconds": { "type": "integer", "minimum": 1 }
       }
     },
+    "startupProbe": {
+      "type": "object",
+      "properties": {
+        "httpGet": {
+          "type": "object",
+          "properties": {
+            "path": { "type": "string" },
+            "port": { "type": "integer" }
+          }
+        },
+        "failureThreshold": { "type": "integer", "minimum": 1 },
+        "periodSeconds": { "type": "integer", "minimum": 1 }
+      }
+    },
     "nodeSelector": {
       "type": "object",
       "additionalProperties": { "type": "string" }
