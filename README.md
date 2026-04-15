@@ -34,9 +34,10 @@ docker run -d --name clay-pg \
 # Clone / navigate to the project
 cd pottery-shop
 
-# Copy env config
+# Copy env config and fill in required values
 cp .env.example .env
-# Set DATABASE_URL and your admin password in .env
+# DATABASE_URL is pre-filled for the local Postgres above
+# Set a real ADMIN_PASS and SESSION_SECRET
 
 # Download dependencies
 go mod tidy
@@ -45,8 +46,7 @@ go mod tidy
 go run ./cmd/server
 
 # Visit http://localhost:8080
-# Admin: http://localhost:8080/admin
-# Or visit https://clay.nz once deployed
+# Admin: http://localhost:8080/admin  (user: admin)
 ```
 
 ## Configuration
@@ -81,22 +81,58 @@ ghcr.io/xavpaice/pottery-shop:latest
 
 Images are also tagged with the git SHA (e.g. `ghcr.io/xavpaice/pottery-shop:sha-abc1234`).
 
-```bash
-# Pull the latest image
-docker pull ghcr.io/xavpaice/pottery-shop:latest
+The image is a two-stage build — Alpine with just the binary, templates, and static assets. It is a pure CGO-free Go binary (`CGO_ENABLED=0`). Uploaded images are stored at `/data/uploads`; the database is external (Postgres, required).
 
-# Run locally
-docker run -p 8080:8080 \
+#### Full Docker testing workflow
+
+The app needs a Postgres database. Use a Docker network to wire them together:
+
+```bash
+# 1. Create a shared network
+docker network create clay-net
+
+# 2. Start Postgres
+docker run -d --name clay-pg --network clay-net \
+  -e POSTGRES_DB=clay \
+  -e POSTGRES_USER=clay \
+  -e POSTGRES_PASSWORD=dev-only \
+  postgres:16-alpine
+
+# 3. Build the app image locally
+make docker
+# (builds ghcr.io/xavpaice/pottery-shop:latest — or use: docker build -t pottery-shop:local .)
+
+# 4. Run the app
+docker run -p 8080:8080 --network clay-net \
   -v clay-data:/data \
+  -e DATABASE_URL=postgresql://clay:dev-only@clay-pg:5432/clay \
   -e ADMIN_PASS=changeme \
   -e SESSION_SECRET=$(openssl rand -hex 32) \
   ghcr.io/xavpaice/pottery-shop:latest
 
-# Or build locally
-make docker
+# Visit http://localhost:8080
+# Admin: http://localhost:8080/admin  (user: admin, pass: changeme)
+
+# 5. Cleanup when done
+docker rm -f clay-pg && docker network rm clay-net
 ```
 
-The image is a two-stage build — Alpine with just the binary, templates, and static assets. It is a pure CGO-free Go binary (`CGO_ENABLED=0`). Uploaded images are stored at `/data/uploads`; the database is external (Postgres).
+#### Pull and run the published image
+
+```bash
+docker pull ghcr.io/xavpaice/pottery-shop:latest
+
+docker network create clay-net
+docker run -d --name clay-pg --network clay-net \
+  -e POSTGRES_DB=clay -e POSTGRES_USER=clay -e POSTGRES_PASSWORD=dev-only \
+  postgres:16-alpine
+docker run -p 8080:8080 --network clay-net \
+  -v clay-data:/data \
+  -e DATABASE_URL=postgresql://clay:dev-only@clay-pg:5432/clay \
+  -e ADMIN_PASS=changeme \
+  -e SESSION_SECRET=$(openssl rand -hex 32) \
+  ghcr.io/xavpaice/pottery-shop:latest
+```
 
 ### Kubernetes (Helm)
 
