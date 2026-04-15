@@ -62,6 +62,21 @@ func main() {
 	store := models.NewProductStore(db)
 	sellerStore := models.NewSellerStore(pool)
 
+	// Bootstrap admin seller from env vars if no admin exists yet
+	ctx := context.Background()
+	exists, err := sellerStore.AdminExists(ctx)
+	if err != nil {
+		log.Fatalf("Failed to check admin existence: %v", err)
+	}
+	if !exists {
+		if adminUser != "" && adminPass != "" {
+			if err := sellerStore.CreateAdmin(ctx, adminUser, adminPass); err != nil {
+				log.Fatalf("bootstrap admin seller: %v", err)
+			}
+			log.Printf("bootstrap: created admin seller %s", adminUser)
+		}
+	}
+
 	// Templates
 	funcMap := template.FuncMap{
 		"lower": strings.ToLower,
@@ -145,6 +160,10 @@ func main() {
 	mux.HandleFunc("/cart/remove", publicHandler.RemoveFromCart)
 	mux.HandleFunc("/order", publicHandler.PlaceOrder)
 	mux.HandleFunc("/order-confirmed", publicHandler.OrderConfirmed)
+
+	// Seller approval route — token IS the auth, no Basic Auth required
+	// Token expiry is a future enhancement.
+	mux.HandleFunc("/admin/sellers/approve", authHandler.ApproveSellerByToken)
 
 	// Admin routes (behind basic auth)
 	adminMux := http.NewServeMux()
