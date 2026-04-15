@@ -60,7 +60,9 @@ func (h *AdminHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 		IsSold:      r.FormValue("is_sold") == "on",
 	}
 
-	if err := h.Store.Create(product); err != nil {
+	// TODO: admin Basic Auth has no SellerID; assign 0 for now.
+	// A future plan will wire admin seller identity once admin login uses the seller session.
+	if err := h.Store.Create(product, 0); err != nil {
 		log.Printf("Error creating product: %v", err)
 		http.Error(w, "Error creating product", 500)
 		return
