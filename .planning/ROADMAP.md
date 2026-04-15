@@ -116,7 +116,7 @@ Plans:
 | 13. Gallery and Seller Profiles | v1.3 | 0/2 | Not started | - |
 | 14. Firing Logs CRUD | v1.3 | 0/3 | Not started | - |
 | 15. Temperature Graphs | v1.3 | 0/2 | Not started | - |
-| 16. Admin Seller Oversight | v1.3 | 0/2 | Not started | - |
+| 16. Admin Seller Oversight | v1.3 | 1/2 | In Progress|  |
 
 ---
 
@@ -228,5 +228,5 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 16-01-PLAN.md — Admin seller list/approve/reject handler + template (SELL-14, SELL-15)
+- [x] 16-01-PLAN.md — Admin seller list/approve/reject handler + template (SELL-14, SELL-15)
 - [ ] 16-02-PLAN.md — Admin all-products view with seller name column (SELL-16)
