@@ -4,3 +4,4 @@ pottery.db
 .env
 pottery-server
 .envrc
+.planning/
