@@ -7,21 +7,31 @@
       "minimum": 1,
       "default": 1
     },
-    "image": {
+    "clay": {
       "type": "object",
       "properties": {
-        "repository": {
-          "type": "string"
-        },
-        "tag": {
-          "type": "string"
-        },
-        "pullPolicy": {
-          "type": "string",
-          "enum": ["Always", "IfNotPresent", "Never"]
+        "image": {
+          "type": "object",
+          "properties": {
+            "registry": {
+              "type": "string",
+              "description": "Image registry (e.g. proxy.replicated.com or proxy.clay.nz)"
+            },
+            "repository": {
+              "type": "string",
+              "description": "Image repository path including proxy prefix"
+            },
+            "tag": {
+              "type": "string"
+            },
+            "pullPolicy": {
+              "type": "string",
+              "enum": ["Always", "IfNotPresent", "Never"]
+            }
+          },
+          "required": ["registry", "repository", "tag"]
         }
-      },
-      "required": ["repository", "tag"]
+      }
     },
     "imagePullSecrets": {
       "type": "array",
@@ -285,12 +295,16 @@
         "enabled": {
           "type": "boolean",
           "description": "true = bundle and install cert-manager as a subchart; false = operator is pre-installed"
+        },
+        "installCRDs": {
+          "type": "boolean",
+          "description": "Install cert-manager CRDs (ClusterIssuer, Certificate, etc.)"
         }
       }
     },
     "features": {
       "type": "object",
-      "description": "Optional feature flags — set to false to disable. Defaults are true to preserve existing behaviour on upgrade.",
+      "description": "Optional feature flags -- set to false to disable. Defaults are true to preserve existing behaviour on upgrade.",
       "properties": {
         "firingLogs": {
           "type": "object",
@@ -304,5 +318,5 @@
       }
     }
   },
-  "required": ["image", "secrets"]
+  "required": ["clay", "secrets"]
 }

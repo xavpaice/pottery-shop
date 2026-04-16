@@ -110,3 +110,44 @@ This guards against the "no database at all" misconfiguration where postgres.man
   {{- fail "postgres.managed or postgres.external.dsn required" }}
 {{- end }}
 {{- end }}
+
+{{/*
+Image pull secrets
+*/}}
+{{- define "replicated.imagePullSecrets" -}}
+  {{- $pullSecrets := list }}
+
+  {{- with ((.Values.global).imagePullSecrets) -}}
+    {{- range . -}}
+      {{- if kindIs "map" . -}}
+        {{- $pullSecrets = append $pullSecrets .name -}}
+      {{- else -}}
+        {{- $pullSecrets = append $pullSecrets . -}}
+      {{- end }}
+    {{- end -}}
+  {{- end -}}
+
+  {{/* use image pull secrets provided as values */}}
+  {{- with .Values.images -}}
+    {{- range .pullSecrets -}}
+      {{- if kindIs "map" . -}}
+        {{- $pullSecrets = append $pullSecrets .name -}}
+      {{- else -}}
+        {{- $pullSecrets = append $pullSecrets . -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+
+  {{/* use the pull secret created by the SDK */}}
+  {{- if hasKey ((.Values.global).replicated) "dockerconfigjson" }}
+    {{- $pullSecrets = append $pullSecrets "enterprise-pull-secret" -}}
+  {{- end -}}
+
+
+  {{- if (not (empty $pullSecrets)) -}}
+imagePullSecrets:
+    {{- range $pullSecrets | uniq }}
+  - name: {{ . }}
+    {{- end }}
+  {{- end }}
+{{- end -}}

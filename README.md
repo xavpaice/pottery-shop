@@ -246,54 +246,6 @@ Key `values.yaml` settings to customise:
 | `persistence.size` | `5Gi` | PVC for uploaded images |
 | `imagePullSecrets` | `[]` | Required for private images (see Prerequisites above) |
 
-#### Upgrading from a pre-umbrella chart
-
-If you are upgrading from a version of this chart that did not bundle operators as subcharts, you must disable the bundled operators before upgrading. Otherwise Helm will install a second copy of each operator, which conflicts with your existing installations.
-
-Add these overrides to your values file before running `helm upgrade`:
-
-```yaml
-cloudnative-pg:
-  enabled: false
-cert-manager:
-  enabled: false
-```
-
-Then upgrade as normal:
-
-```bash
-helm upgrade clay ./chart/clay -n clay
-```
-
-### Kubernetes (raw manifests)
-
-> **Note:** Raw Kubernetes manifests are not included in this repository. Use the Helm chart
-> (`chart/clay/`) for all Kubernetes deployments.
-
-### Bare metal / VPS
-
-Build a static binary and run behind nginx with Let's Encrypt:
-
-```bash
-make build
-
-# Run
-PORT=8080 BASE_URL=https://clay.nz ./pottery-server
-```
-
-Nginx reverse proxy config:
-```nginx
-server {
-    server_name clay.nz;
-    location / {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        client_max_body_size 50M;
-    }
-}
-```
-
 ## Development
 
 ### Make targets
