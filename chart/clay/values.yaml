@@ -15,29 +15,6 @@ service:
   type: ClusterIP
   port: 80
 
-# -- Ingress configuration
-#
-# MIGRATION NOTE (v0.1.0 -> v0.2.0): The ingress block shape has changed.
-#
-# OLD shape (removed):
-#   ingress:
-#     enabled: true
-#     className: ""
-#     annotations:
-#       nginx.ingress.kubernetes.io/proxy-body-size: "50m"
-#     hosts:
-#       - host: clay.nz
-#         paths:
-#           - path: /
-#             pathType: Prefix
-#     tls:
-#       - secretName: clay-tls
-#         hosts:
-#           - clay.nz
-#
-# NEW shape (below): single host scalar, mode-driven TLS, Traefik annotations hardcoded.
-# Note: className now defaults to "traefik" (was ""). Set className: "" for other controllers.
-#
 ingress:
   enabled: false
   className: traefik          # ingressClassName field -- override for non-Traefik controllers
@@ -85,21 +62,35 @@ containerPort: 8080
 
 readinessProbe:
   httpGet:
-    path: /
+    path: /readyz
     port: 8080
   initialDelaySeconds: 2
   periodSeconds: 10
 
 livenessProbe:
   httpGet:
-    path: /
+    path: /healthz
     port: 8080
   initialDelaySeconds: 5
   periodSeconds: 30
 
+startupProbe:
+  httpGet:
+    path: /healthz
+    port: 8080
+  failureThreshold: 30
+  periodSeconds: 2
+
 nodeSelector: {}
 tolerations: []
 affinity: {}
+
+# -- Feature flags
+# Features listed here can be toggled per deployment. Defaults are "on" to preserve
+# existing behaviour for upgrades. Set to false to disable.
+features:
+  firingLogs:
+    enabled: true   # Seller kiln-session tracking (firing logs + temperature readings)
 
 # -- Postgres configuration (managed via CNPG or external DSN)
 postgres:
@@ -118,4 +109,23 @@ postgres:
 # Pin to a specific patch version to avoid mutable-tag supply-chain risk.
 waitForPostgres:
   image: postgres:16.3-alpine3.20
+
+# -- Subchart operator toggles
+#
+# cloudnative-pg.enabled: install the CNPG operator as a bundled subchart.
+#   Independent of postgres.managed — postgres.managed controls whether a CNPG Cluster CR
+#   is rendered; cloudnative-pg.enabled controls whether the CNPG operator itself is bundled.
+#   Set to false when the CNPG operator is already installed in the cluster (pre-installed mode).
+#   Installs into the same namespace as this release (no namespace override). (D-01, D-02)
+#
+cloudnative-pg:
+  enabled: true   # -- default: true (full umbrella install bundles the operator)
+
+# -- cert-manager.enabled: install cert-manager as a bundled subchart.
+#   Set to false when cert-manager is already installed in the cluster (pre-installed mode).
+#   Installs into the same namespace as this release (no namespace override). (D-01)
+#
+cert-manager:
+  enabled: true   # -- default: true (full umbrella install bundles the operator)
+  installCRDs: true  # -- install cert-manager CRDs (ClusterIssuer, Certificate, etc.)
 

@@ -39,17 +39,32 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@v4
 
-      - name: Lint (managed mode)
-        run: helm lint chart/clay/ --values chart/clay/ci/managed-values.yaml
+      - name: Update chart dependencies
+        run: helm dependency update chart/clay/
 
-      - name: Lint (external mode)
-        run: helm lint chart/clay/ --values chart/clay/ci/external-values.yaml
+      - name: Lint (bundled mode — both operators)
+        run: helm lint chart/clay/ --values chart/clay/ci/ci-bundled-values.yaml
 
-      - name: Template (managed mode)
-        run: helm template clay chart/clay/ --values chart/clay/ci/managed-values.yaml
+      - name: Template (bundled mode — both operators)
+        run: helm template clay chart/clay/ --values chart/clay/ci/ci-bundled-values.yaml
 
-      - name: Template (external mode)
-        run: helm template clay chart/clay/ --values chart/clay/ci/external-values.yaml
+      - name: Lint (pre-installed mode — both disabled)
+        run: helm lint chart/clay/ --values chart/clay/ci/ci-preinstalled-values.yaml
+
+      - name: Template (pre-installed mode — both disabled)
+        run: helm template clay chart/clay/ --values chart/clay/ci/ci-preinstalled-values.yaml
+
+      - name: Lint (external-db mode — minimal)
+        run: helm lint chart/clay/ --values chart/clay/ci/ci-external-db-values.yaml
+
+      - name: Template (external-db mode — minimal)
+        run: helm template clay chart/clay/ --values chart/clay/ci/ci-external-db-values.yaml
+
+      - name: Lint (mixed mode — CNPG bundled, cert-manager pre-installed)
+        run: helm lint chart/clay/ --values chart/clay/ci/ci-mixed-values.yaml
+
+      - name: Template (mixed mode — CNPG bundled, cert-manager pre-installed)
+        run: helm template clay chart/clay/ --values chart/clay/ci/ci-mixed-values.yaml
 
       - name: Lint (TLS — letsencrypt mode)
         run: helm lint chart/clay/ --values chart/clay/ci/tls-letsencrypt-values.yaml
@@ -69,5 +84,5 @@ jobs:
       - name: Template (TLS — custom mode)
         run: helm template clay chart/clay/ --values chart/clay/ci/tls-custom-values.yaml
 
-      - name: Behavioral tests (INGR-01..04, TLS-01..03)
+      - name: Behavioral tests (INGR-01..04, TLS-01..03, CI-01..05)
         run: chart/tests/helm-template-test.sh

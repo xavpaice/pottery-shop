@@ -14,6 +14,7 @@ import (
 
 type PublicHandler struct {
 	Store     *models.ProductStore
+	Sellers   *models.SellerStore
 	Templates *template.Template
 	Session   *middleware.SessionManager
 	Config    *Config
@@ -35,7 +36,7 @@ func (h *PublicHandler) Home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	products, err := h.Store.ListAvailable()
+	products, err := h.Store.ListAvailableWithSeller(r.Context())
 	if err != nil {
 		log.Printf("Error listing products: %v", err)
 		http.Error(w, "Internal server error", 500)
@@ -56,7 +57,33 @@ func (h *PublicHandler) Home(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *PublicHandler) Gallery(w http.ResponseWriter, r *http.Request) {
-	products, err := h.Store.ListSold()
+	ctx := r.Context()
+
+	var products []models.Product
+	var err error
+
+	// Optional seller filter: ?seller={id}
+	if sellerStr := r.URL.Query().Get("seller"); sellerStr != "" {
+		if sellerID, parseErr := strconv.ParseInt(sellerStr, 10, 64); parseErr == nil {
+			products, err = h.Store.ListBySeller(ctx, sellerID)
+			// Filter to only sold items when filtering by seller
+			if err == nil {
+				var sold []models.Product
+				for _, p := range products {
+					if p.IsSold {
+						sold = append(sold, p)
+					}
+				}
+				products = sold
+			}
+		}
+	}
+
+	// No (valid) seller filter — list all sold with seller attribution
+	if products == nil && err == nil {
+		products, err = h.Store.ListSoldWithSeller(ctx)
+	}
+
 	if err != nil {
 		log.Printf("Error listing sold products: %v", err)
 		http.Error(w, "Internal server error", 500)
@@ -84,7 +111,7 @@ func (h *PublicHandler) ProductDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	product, err := h.Store.GetByID(id)
+	product, err := h.Store.GetByIDWithSeller(r.Context(), id)
 	if err != nil {
 		http.NotFound(w, r)
 		return
@@ -110,6 +137,52 @@ func (h *PublicHandler) ProductDetail(w http.ResponseWriter, r *http.Request) {
 	session.Flash = ""
 
 	h.render(w, "product.html", data)
+}
+
+func (h *PublicHandler) SellerProfile(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	ctx := r.Context()
+	seller, err := h.Sellers.GetByID(ctx, id)
+	if err != nil || seller == nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	allProducts, err := h.Store.ListBySeller(ctx, id)
+	if err != nil {
+		log.Printf("Error listing products for seller %d: %v", id, err)
+		http.Error(w, "Internal server error", 500)
+		return
+	}
+
+	var available, pastWork []models.Product
+	for _, p := range allProducts {
+		if p.IsSold {
+			pastWork = append(pastWork, p)
+		} else {
+			available = append(available, p)
+		}
+	}
+
+	session := middleware.GetSession(r)
+	cart := models.CartFromJSON(session.CartJSON)
+
+	data := map[string]interface{}{
+		"Seller":    seller,
+		"Available": available,
+		"PastWork":  pastWork,
+		"CartCount": cart.Count(),
+		"Flash":     session.Flash,
+	}
+	session.Flash = ""
+
+	h.render(w, "seller_profile.html", data)
 }
 
 func (h *PublicHandler) AddToCart(w http.ResponseWriter, r *http.Request) {
@@ -225,12 +298,26 @@ func (h *PublicHandler) PlaceOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	body += "Items:\n"
 	body += "------\n"
+
+	// Determine the order email recipient: use the first cart item's seller, fall back to global ORDER_EMAIL.
+	toEmail := h.Config.OrderEmail
+	if len(cart.Items) > 0 {
+		product, perr := h.Store.GetByID(cart.Items[0].ProductID)
+		if perr == nil && product.SellerID != 0 {
+			seller, serr := h.Sellers.GetByID(r.Context(), product.SellerID)
+			if serr == nil && seller != nil && seller.OrderEmail != "" {
+				toEmail = seller.OrderEmail
+			}
+		}
+	}
+
 	for _, item := range cart.Items {
 		body += fmt.Sprintf("- %s — $%.2f\n  %s/product/%d\n", item.Title, item.Price, h.Config.BaseURL, item.ProductID)
 	}
 	body += fmt.Sprintf("\nTotal: $%.2f\n", cart.Total())
 
-	err := h.sendEmail(
+	err := h.sendEmailTo(
+		toEmail,
 		fmt.Sprintf("New Pottery Order from %s", buyerName),
 		body,
 	)
@@ -257,14 +344,14 @@ func (h *PublicHandler) OrderConfirmed(w http.ResponseWriter, r *http.Request) {
 	h.render(w, "order_confirmed.html", data)
 }
 
-func (h *PublicHandler) sendEmail(subject, body string) error {
+// sendEmailTo sends an email to the given recipient address.
+func (h *PublicHandler) sendEmailTo(to, subject, body string) error {
 	if h.Config.SMTPHost == "" {
-		log.Printf("SMTP not configured. Email would be:\nTo: %s\nSubject: %s\n%s", h.Config.OrderEmail, subject, body)
+		log.Printf("SMTP not configured. Email would be:\nTo: %s\nSubject: %s\n%s", to, subject, body)
 		return nil
 	}
 
 	from := h.Config.SMTPFrom
-	to := h.Config.OrderEmail
 	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n%s",
 		from, to, subject, body)
 

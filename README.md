@@ -16,7 +16,7 @@ A simple online shop for one-of-a-kind clay and sculpture pieces. Built with Go,
 - Go 1.26+
 - Make
 - Docker (required for integration tests — testcontainers-go spins up a Postgres container)
-- For Kubernetes deployment: a cluster with the [CloudNative-PG operator](https://cloudnative-pg.io) installed
+- For Kubernetes deployment: a Kubernetes cluster (v1.25+)
 
 ## Quick Start
 
@@ -138,33 +138,53 @@ docker run -p 8080:8080 --network clay-net \
 
 A Helm chart is provided in `chart/clay/`. This is the recommended way to deploy.
 
-#### Prerequisites
+#### Default install (operators bundled)
 
-The chart creates a CloudNative-PG `Cluster` resource when `postgres.managed: true` (the default). The CNPG operator must be installed on the cluster first — it is a cluster-scoped singleton and is not bundled with the chart:
-
-```bash
-helm repo add cnpg https://cloudnative-pg.github.io/charts
-helm install cnpg cnpg/cloudnative-pg \
-  --namespace cnpg-system \
-  --create-namespace \
-  --wait
-```
-
-#### Install
+Both the CloudNative-PG and cert-manager operators install automatically as Helm subcharts. No separate operator setup is needed.
 
 ```bash
-# Install (CNPG manages the Postgres cluster)
+# Install with bundled operators (default)
 helm install clay ./chart/clay -n clay --create-namespace \
   --set secrets.ADMIN_PASS=your-secure-password \
   --set secrets.SESSION_SECRET=$(openssl rand -hex 32)
+```
 
+> **Note:** First install with bundled operators takes ~30-60 seconds longer than usual while webhook-wait Jobs confirm the operators are ready.
+
+#### Pre-installed operators
+
+If the CNPG operator and/or cert-manager are already running in your cluster, disable the bundled subcharts to avoid installing duplicate operator instances:
+
+```bash
+# Inline flags
+helm install clay ./chart/clay -n clay --create-namespace \
+  --set cloudnative-pg.enabled=false \
+  --set cert-manager.enabled=false \
+  --set secrets.ADMIN_PASS=your-secure-password \
+  --set secrets.SESSION_SECRET=$(openssl rand -hex 32)
+```
+
+Or in a values file:
+
+```yaml
+cloudnative-pg:
+  enabled: false
+cert-manager:
+  enabled: false
+```
+
+#### External Postgres (no CNPG)
+
+```bash
 # Install with an external Postgres (CNPG not required)
 helm install clay ./chart/clay -n clay --create-namespace \
   --set postgres.managed=false \
   --set postgres.external.dsn=postgresql://user:pass@host:5432/clay \
   --set secrets.ADMIN_PASS=your-secure-password \
   --set secrets.SESSION_SECRET=$(openssl rand -hex 32)
+```
 
+```bash
 # Upgrade after changes
 helm upgrade clay ./chart/clay -n clay
 ```
@@ -181,7 +201,11 @@ Key `values.yaml` settings to customise:
 | `postgres.external.dsn` | `""` | Required when `managed: false` |
 | `postgres.cluster.instances` | `1` | CNPG cluster replica count |
 | `postgres.cluster.storage.size` | `5Gi` | CNPG PVC size |
-| `ingress.hosts[0].host` | `clay.nz` | Your domain |
+| `cloudnative-pg.enabled` | `true` | `true` = bundle CNPG operator as subchart; `false` = use pre-installed operator |
+| `cert-manager.enabled` | `true` | `true` = bundle cert-manager as subchart; `false` = use pre-installed cert-manager |
+| `ingress.enabled` | `false` | Enable ingress resource |
+| `ingress.host` | `""` | Hostname (**required** when `ingress.enabled: true`) |
+| `ingress.tls.mode` | `""` | TLS mode: `letsencrypt`, `selfsigned`, or `custom` |
 | `persistence.size` | `5Gi` | PVC for uploaded images |
 | `imagePullSecrets` | `[]` | Required for private images (see below) |
 
@@ -211,17 +235,29 @@ helm install clay ./chart/clay -n clay --create-namespace \
   --set imagePullSecrets[0].name=ghcr-creds
 ```
 
+#### Upgrading from a pre-umbrella chart
+
+If you are upgrading from a version of this chart that did not bundle operators as subcharts, you must disable the bundled operators before upgrading. Otherwise Helm will install a second copy of each operator, which conflicts with your existing installations.
+
+Add these overrides to your values file before running `helm upgrade`:
+
+```yaml
+cloudnative-pg:
+  enabled: false
+cert-manager:
+  enabled: false
+```
+
+Then upgrade as normal:
+
+```bash
+helm upgrade clay ./chart/clay -n clay
+```
+
 ### Kubernetes (raw manifests)
 
-Raw manifests are also available in `k8s/` if you prefer not to use Helm:
-
-1. **Edit secrets** in `k8s/secret.yaml` — set a real `ADMIN_PASS` and `SESSION_SECRET`
-2. **Update** `k8s/configmap.yaml` and `k8s/ingress.yaml` with your domain/SMTP settings
-3. **Apply:**
-   ```bash
-   make deploy
-   # or: kubectl apply -f k8s/
-   ```
+> **Note:** Raw Kubernetes manifests are not included in this repository. Use the Helm chart
+> (`chart/clay/`) for all Kubernetes deployments.
 
 ### Bare metal / VPS
 
@@ -296,7 +332,9 @@ Three GitHub Actions workflows run on PRs and pushes to `main`:
 
 **`test.yml`** — runs on every PR and push:
 - `go vet` + `make test` (testcontainers-go Postgres) + `make build` with `CGO_ENABLED=0`
-- Helm lint + `helm template` render check in both managed and external modes
+- Helm lint + `helm template` across all four operator toggle combinations: bundled (both operators), pre-installed (both disabled), external-db (minimal, no operators), and mixed (CNPG bundled, cert-manager pre-installed)
+- TLS mode linting (letsencrypt, selfsigned, custom)
+- Behavioral assertion tests (`helm-template-test.sh`)
 
 **`integration-test.yml`** — runs on PRs (non-fork only):
 - Builds and pushes a PR-tagged image to GHCR

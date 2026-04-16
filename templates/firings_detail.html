@@ -1,0 +1,79 @@
+{{define "firings_detail.html"}}
+{{template "header" .}}
+
+<div class="dashboard">
+    <nav class="dashboard-nav">
+        <ul>
+            <li><a href="/dashboard">Dashboard</a></li>
+            <li><a href="/dashboard/products">My Products</a></li>
+            <li><a href="/dashboard/firings">Firing Logs</a></li>
+        </ul>
+    </nav>
+
+    {{if .Flash}}
+    <div class="flash-message">
+        <div class="container">{{.Flash}}</div>
+    </div>
+    {{end}}
+
+    <h2>{{.Log.Title}}</h2>
+
+    <div class="detail-fields" style="margin: 1rem 0;">
+        <p><strong>Firing Date:</strong> {{if .Log.FiringDate}}{{.Log.FiringDate}}{{else}}&mdash;{{end}}</p>
+        <p><strong>Clay Body:</strong> {{if .Log.ClayBody}}{{.Log.ClayBody}}{{else}}&mdash;{{end}}</p>
+        {{if .Log.GlazeNotes}}<p><strong>Glaze Notes:</strong> {{.Log.GlazeNotes}}</p>{{end}}
+        <p><strong>Outcome:</strong> {{if .Log.Outcome}}{{.Log.Outcome}}{{else}}&mdash;{{end}}</p>
+        {{if .Log.Notes}}<p><strong>Notes:</strong> {{.Log.Notes}}</p>{{end}}
+    </div>
+
+    <div style="margin-bottom: 1rem;">
+        <a href="/dashboard/firings/{{.Log.ID}}/edit" class="btn btn-primary">Edit</a>
+        <form method="POST" action="/dashboard/firings/{{.Log.ID}}/delete" class="inline-form"
+              onsubmit="return confirm('Delete this firing log and all its readings?')" style="display:inline-block; margin-left: 0.5rem;">
+            <button type="submit" class="btn btn-danger">Delete</button>
+        </form>
+    </div>
+
+    <h3>Temperature Readings</h3>
+
+    {{if .Log.Readings}}
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>Elapsed (min)</th>
+                <th>Temp (&deg;C)</th>
+                <th>Gas</th>
+                <th>Flue</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Log.Readings}}
+            <tr>
+                <td>{{.ElapsedMinutes}}</td>
+                <td>{{.Temperature}}</td>
+                <td>{{if .GasSetting}}{{.GasSetting}}{{else}}&mdash;{{end}}</td>
+                <td>{{if .FlueSetting}}{{.FlueSetting}}{{else}}&mdash;{{end}}</td>
+                <td>{{if .Notes}}{{.Notes}}{{else}}&mdash;{{end}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <div class="empty-state">
+        <p>No readings recorded yet.</p>
+    </div>
+    {{end}}
+
+    {{if .Log.Readings}}
+    <div class="chart-container" style="position:relative;max-width:800px;margin-top:2rem;">
+        <canvas id="firingChart" data-firing-id="{{.Log.ID}}"></canvas>
+    </div>
+    {{end}}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="/static/js/firing_chart.js"></script>
+
+{{template "footer" .}}
+{{end}}

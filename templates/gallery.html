@@ -20,6 +20,7 @@
         </div>
         <div class="product-info">
             <h3>{{.Title}}</h3>
+            {{if .SellerName}}<p class="seller-name">by <a href="/seller/{{.SellerID}}">{{.SellerName}}</a></p>{{end}}
         </div>
     </a>
     {{end}}

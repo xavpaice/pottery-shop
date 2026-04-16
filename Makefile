@@ -1,7 +1,9 @@
-.PHONY: build test test-verbose clean run docker helm-lint lint integration-test
+.PHONY: build test test-verbose clean run run-local run-stop docker helm-lint lint integration-test
 
 BINARY := pottery-server
 GO := go
+K3D_CLUSTER := pottery
+K3D_IMAGE := pottery-shop:dev
 
 ## build: compile the server binary
 build:
@@ -9,15 +11,15 @@ build:
 
 ## test: run all tests
 test:
-	CGO_ENABLED=0 $(GO) test ./...
+	CGO_ENABLED=0 TESTCONTAINERS_RYUK_DISABLED=true $(GO) test ./...
 
 ## test-verbose: run all tests with verbose output
 test-verbose:
-	CGO_ENABLED=0 $(GO) test -v ./...
+	CGO_ENABLED=0 TESTCONTAINERS_RYUK_DISABLED=true $(GO) test -v ./...
 
 ## test-coverage: run tests with coverage report
 test-coverage:
-	CGO_ENABLED=0 $(GO) test -coverprofile=coverage.out ./...
+	CGO_ENABLED=0 TESTCONTAINERS_RYUK_DISABLED=true $(GO) test -coverprofile=coverage.out ./...
 	$(GO) tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
 
@@ -25,9 +27,55 @@ test-coverage:
 clean:
 	rm -f $(BINARY) coverage.out coverage.html
 
-## run: build and run the server
-run: build
+## run: build image, deploy to local k3d cluster, port-forward to localhost:8080
+run:
+	@command -v k3d >/dev/null 2>&1 || { echo "Error: k3d not installed. Run: brew install k3d"; exit 1; }
+	@command -v helm >/dev/null 2>&1 || { echo "Error: helm not installed. Run: brew install helm"; exit 1; }
+	@echo "--- Ensuring k3d cluster '$(K3D_CLUSTER)' exists ---"
+	@k3d cluster list $(K3D_CLUSTER) >/dev/null 2>&1 || \
+		k3d cluster create $(K3D_CLUSTER) --no-lb --wait
+	@echo "--- Building image ---"
+	docker build -t $(K3D_IMAGE) .
+	@echo "--- Importing image into k3d ---"
+	k3d image import $(K3D_IMAGE) -c $(K3D_CLUSTER)
+	@echo "--- Updating chart dependencies ---"
+	helm dependency update chart/clay/
+	@echo "--- Installing chart ---"
+	@kubectl --context k3d-$(K3D_CLUSTER) create namespace clay 2>/dev/null || true
+	helm upgrade --install clay chart/clay/ \
+		--namespace clay \
+		--set image.repository=pottery-shop \
+		--set image.tag=dev \
+		--set image.pullPolicy=Never \
+		--set ingress.enabled=false \
+		--set persistence.enabled=false \
+		--set secrets.ADMIN_PASS=localdev \
+		--set secrets.SESSION_SECRET=localdev-session-secret-min-32chars \
+		--timeout 5m
+	@echo "--- Waiting for Postgres cluster to become ready ---"
+	@for i in $$(seq 1 60); do \
+		if kubectl --context k3d-$(K3D_CLUSTER) get clusters.postgresql.cnpg.io -n clay clay-postgres -o jsonpath='{.status.phase}' 2>/dev/null | grep -q "Cluster in healthy state"; then \
+			echo "Postgres ready"; break; \
+		fi; \
+		printf "."; sleep 5; \
+	done
+	@echo ""
+	@echo "--- Waiting for app deployment ---"
+	@kubectl --context k3d-$(K3D_CLUSTER) rollout status deployment/clay -n clay --timeout=120s
+	@echo "--- Cluster ready ---"
+	@kubectl --context k3d-$(K3D_CLUSTER) get pods -n clay
+	@echo ""
+	@echo "Port-forward: kubectl --context k3d-$(K3D_CLUSTER) port-forward -n clay svc/clay 8080:80"
+	@echo "Admin login:  admin / localdev"
+	@echo "Stop cluster: make run-stop"
+
+## run-local: build and run the server binary directly (no k8s)
+run-local: build
 	./$(BINARY)
+
+## run-stop: delete the local k3d cluster
+run-stop:
+	k3d cluster delete $(K3D_CLUSTER)
 
 ## tidy: tidy and verify module dependencies
 tidy:
@@ -36,8 +84,8 @@ tidy:
 
 ## helm-lint: lint the Helm chart
 helm-lint:
-	helm lint chart/clay/ -f chart/clay/ci/managed-values.yaml
-	helm lint chart/clay/ -f chart/clay/ci/external-values.yaml
+	helm lint chart/clay/ -f chart/clay/ci/ci-bundled-values.yaml
+	helm lint chart/clay/ -f chart/clay/ci/ci-external-db-values.yaml
 
 ## helm-test: run helm template behavioral tests (Phase 3 validation)
 helm-test:
@@ -50,9 +98,10 @@ lint: helm-lint helm-test
 docker:
 	docker build -t ghcr.io/xavpaice/pottery-shop:latest .
 
-## deploy: apply all Kubernetes manifests
+## deploy: deploy via Helm (raw manifests not included; use the Helm chart)
 deploy:
-	kubectl apply -f k8s/
+	@echo "Raw Kubernetes manifests are not included. Use 'helm upgrade --install clay ./chart/clay -n clay' instead."
+	@exit 1
 
 GHCR_USERNAME ?= xavpaice
 IMAGE_REPO := ghcr.io/xavpaice/pottery-shop

@@ -1,7 +1,5 @@
 {{- include "clay.validateSecrets" . }}
-{{- if and (not .Values.postgres.managed) (not .Values.postgres.external.dsn) }}
-  {{- fail "Either postgres.managed must be true or postgres.external.dsn must be set" }}
-{{- end }}
+{{- include "clay.validateDB" . }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -42,18 +40,19 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- if .Values.postgres.managed }}
           env:
+            - name: FEATURE_FIRING_LOGS_ENABLED
+              value: {{ .Values.features.firingLogs.enabled | toString | quote }}
+            {{- if .Values.postgres.managed }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: {{ include "clay.fullname" . }}-postgres-app
                   key: uri
-          {{- else if .Values.postgres.external.dsn }}
-          env:
+            {{- else if .Values.postgres.external.dsn }}
             - name: DATABASE_URL
               value: {{ .Values.postgres.external.dsn | quote }}
-          {{- end }}
+            {{- end }}
           ports:
             - containerPort: {{ .Values.containerPort }}
           envFrom:
@@ -70,6 +69,10 @@ spec:
           {{- end }}
           {{- with .Values.livenessProbe }}
           livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.startupProbe }}
+          startupProbe:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- with .Values.resources }}

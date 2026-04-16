@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"database/sql"
 	"time"
 )
@@ -14,6 +15,8 @@ type Product struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	Images      []Image
+	SellerID    int64  `db:"seller_id"`
+	SellerName  string `db:"seller_name"` // populated via JOIN, not stored
 }
 
 type Image struct {
@@ -33,13 +36,149 @@ func NewProductStore(db *sql.DB) *ProductStore {
 	return &ProductStore{DB: db}
 }
 
-func (s *ProductStore) Create(p *Product) error {
+func (s *ProductStore) Create(p *Product, sellerID int64) error {
+	var sid interface{}
+	if sellerID != 0 {
+		sid = sellerID
+	}
 	err := s.DB.QueryRow(
-		`INSERT INTO products (title, description, price, is_sold)
-         VALUES ($1, $2, $3, $4) RETURNING id`,
-		p.Title, p.Description, p.Price, p.IsSold,
+		`INSERT INTO products (title, description, price, is_sold, seller_id)
+         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+		p.Title, p.Description, p.Price, p.IsSold, sid,
 	).Scan(&p.ID)
 	return err
+}
+
+// ListBySeller returns all products belonging to the given seller, ordered by created_at DESC.
+func (s *ProductStore) ListBySeller(ctx context.Context, sellerID int64) ([]Product, error) {
+	rows, err := s.DB.QueryContext(ctx,
+		`SELECT products.id, products.title, products.description, products.price, products.is_sold,
+		        products.created_at, products.updated_at, COALESCE(products.seller_id, 0) AS seller_id, COALESCE(sellers.name, '') AS seller_name
+		 FROM products
+		 LEFT JOIN sellers ON products.seller_id = sellers.id
+		 WHERE products.seller_id = $1
+		 ORDER BY products.created_at DESC`,
+		sellerID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var products []Product
+	for rows.Next() {
+		var p Product
+		if err := rows.Scan(&p.ID, &p.Title, &p.Description, &p.Price, &p.IsSold,
+			&p.CreatedAt, &p.UpdatedAt, &p.SellerID, &p.SellerName); err != nil {
+			return nil, err
+		}
+		p.Images, _ = s.GetImages(p.ID)
+		products = append(products, p)
+	}
+	return products, rows.Err()
+}
+
+// ListAllWithSeller returns all products with their seller name (via JOIN), ordered by created_at DESC.
+// Used by the admin dashboard to display all products with ownership info.
+func (s *ProductStore) ListAllWithSeller(ctx context.Context) ([]Product, error) {
+	rows, err := s.DB.QueryContext(ctx,
+		`SELECT products.id, products.title, products.description, products.price, products.is_sold,
+		        products.created_at, products.updated_at, COALESCE(products.seller_id, 0) AS seller_id, COALESCE(sellers.name, '') AS seller_name
+		 FROM products
+		 LEFT JOIN sellers ON products.seller_id = sellers.id
+		 ORDER BY products.created_at DESC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var products []Product
+	for rows.Next() {
+		var p Product
+		if err := rows.Scan(&p.ID, &p.Title, &p.Description, &p.Price, &p.IsSold,
+			&p.CreatedAt, &p.UpdatedAt, &p.SellerID, &p.SellerName); err != nil {
+			return nil, err
+		}
+		p.Images, _ = s.GetImages(p.ID)
+		products = append(products, p)
+	}
+	return products, rows.Err()
+}
+
+// ListAvailableWithSeller returns unsold products with seller name populated via LEFT JOIN.
+func (s *ProductStore) ListAvailableWithSeller(ctx context.Context) ([]Product, error) {
+	rows, err := s.DB.QueryContext(ctx,
+		`SELECT products.id, products.title, products.description, products.price, products.is_sold,
+		        products.created_at, products.updated_at, COALESCE(products.seller_id, 0) AS seller_id, COALESCE(sellers.name, '') AS seller_name
+		 FROM products
+		 LEFT JOIN sellers ON products.seller_id = sellers.id
+		 WHERE products.is_sold = false
+		 ORDER BY products.created_at DESC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var products []Product
+	for rows.Next() {
+		var p Product
+		if err := rows.Scan(&p.ID, &p.Title, &p.Description, &p.Price, &p.IsSold,
+			&p.CreatedAt, &p.UpdatedAt, &p.SellerID, &p.SellerName); err != nil {
+			return nil, err
+		}
+		p.Images, _ = s.GetImages(p.ID)
+		products = append(products, p)
+	}
+	return products, rows.Err()
+}
+
+// ListSoldWithSeller returns sold products with seller name populated via LEFT JOIN.
+func (s *ProductStore) ListSoldWithSeller(ctx context.Context) ([]Product, error) {
+	rows, err := s.DB.QueryContext(ctx,
+		`SELECT products.id, products.title, products.description, products.price, products.is_sold,
+		        products.created_at, products.updated_at, COALESCE(products.seller_id, 0) AS seller_id, COALESCE(sellers.name, '') AS seller_name
+		 FROM products
+		 LEFT JOIN sellers ON products.seller_id = sellers.id
+		 WHERE products.is_sold = true
+		 ORDER BY products.updated_at DESC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var products []Product
+	for rows.Next() {
+		var p Product
+		if err := rows.Scan(&p.ID, &p.Title, &p.Description, &p.Price, &p.IsSold,
+			&p.CreatedAt, &p.UpdatedAt, &p.SellerID, &p.SellerName); err != nil {
+			return nil, err
+		}
+		p.Images, _ = s.GetImages(p.ID)
+		products = append(products, p)
+	}
+	return products, rows.Err()
+}
+
+// GetByIDWithSeller returns a single product by ID with seller name populated via LEFT JOIN.
+func (s *ProductStore) GetByIDWithSeller(ctx context.Context, id int64) (*Product, error) {
+	p := &Product{}
+	err := s.DB.QueryRowContext(ctx,
+		`SELECT products.id, products.title, products.description, products.price, products.is_sold,
+		        products.created_at, products.updated_at, COALESCE(products.seller_id, 0) AS seller_id, COALESCE(sellers.name, '') AS seller_name
+		 FROM products
+		 LEFT JOIN sellers ON products.seller_id = sellers.id
+		 WHERE products.id = $1`,
+		id,
+	).Scan(&p.ID, &p.Title, &p.Description, &p.Price, &p.IsSold,
+		&p.CreatedAt, &p.UpdatedAt, &p.SellerID, &p.SellerName)
+	if err != nil {
+		return nil, err
+	}
+	p.Images, err = s.GetImages(id)
+	return p, err
 }
 
 func (s *ProductStore) Update(p *Product) error {

@@ -99,3 +99,14 @@ Used by both ingress.yaml (this phase) and Certificate CR (Phase 4).
   {{- printf "%s-tls" (include "clay.fullname" .) -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+Validate database configuration — fail fast at render time if no database source is configured.
+Called from deployment.yaml. Fails if neither postgres.managed is true nor postgres.external.dsn is set.
+This guards against the "no database at all" misconfiguration where postgres.managed=false but no DSN is provided. (D-03)
+*/}}
+{{- define "clay.validateDB" -}}
+{{- if and (not .Values.postgres.managed) (not .Values.postgres.external.dsn) }}
+  {{- fail "postgres.managed or postgres.external.dsn required" }}
+{{- end }}
+{{- end }}
