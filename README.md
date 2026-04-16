@@ -138,6 +138,14 @@ docker run -p 8080:8080 --network clay-net \
 
 A Helm chart is provided in `chart/clay/`. This is the recommended way to deploy.
 
+#### Quick setup for a k3s based VM
+
+```bash
+curl -sfL https://get.k3s.io | sh - 
+curl -sfL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4 | bash
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+```
+
 #### Prerequisites
 
 The container image is hosted on a private GitHub Container Registry. You must create an image pull secret so the pods can pull the image. Create it **after** the Helm install (which creates the namespace), then the pod will pick it up on its next retry.
