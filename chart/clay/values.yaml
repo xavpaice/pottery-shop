@@ -127,4 +127,5 @@ cloudnative-pg:
 #
 cert-manager:
   enabled: true   # -- default: true (full umbrella install bundles the operator)
+  installCRDs: true  # -- install cert-manager CRDs (ClusterIssuer, Certificate, etc.)
 

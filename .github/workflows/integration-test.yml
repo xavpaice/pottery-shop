@@ -70,15 +70,18 @@ jobs:
             --docker-username=${{ github.actor }} \
             --docker-password=${{ secrets.GITHUB_TOKEN }}
 
-          # Install the chart (no --wait: the app init container waits for Postgres,
-          # but the CNPG Cluster CR is a post-install hook, so --wait would deadlock)
+          # Install the full chart with ingress + TLS enabled (no --wait: the app
+          # init container waits for Postgres, but the CNPG Cluster CR is a
+          # post-install hook that fires after helm returns)
           helm install clay chart/clay/ \
             --namespace clay \
             --set image.tag=pr-${{ github.event.pull_request.number }} \
             --set imagePullSecrets[0].name=ghcr-pull-secret \
             --set secrets.ADMIN_PASS=ci-test-only \
             --set secrets.SESSION_SECRET=ci-test-session-secret-not-for-production \
-            --set ingress.enabled=false \
+            --set ingress.enabled=true \
+            --set ingress.host=pottery.ci.local \
+            --set ingress.tls.mode=selfsigned \
             --set persistence.enabled=false \
             --set cert-manager.startupapicheck.enabled=false \
             --timeout 5m
@@ -106,21 +109,19 @@ jobs:
           POD_NAME=$(kubectl get pods -n clay -l app.kubernetes.io/name=clay -o jsonpath='{.items[0].metadata.name}')
           kubectl exec -n clay "$POD_NAME" -- wget -qO- http://localhost:8080/ | head -c 200
 
-      - name: Verify cert-manager templates render and apply
+      - name: Verify cert-manager resources
         run: |
-          helm upgrade clay chart/clay/ \
-            --namespace clay \
-            --set image.tag=pr-${{ github.event.pull_request.number }} \
-            --set imagePullSecrets[0].name=ghcr-pull-secret \
-            --set secrets.ADMIN_PASS=ci-test-only \
-            --set secrets.SESSION_SECRET=ci-test-session-secret-not-for-production \
-            --set ingress.enabled=true \
-            --set ingress.host=pottery.ci.local \
-            --set ingress.tls.mode=selfsigned \
-            --set persistence.enabled=false \
-            --timeout 5m \
-            --wait
-          kubectl get clusterissuers -n clay || true
+          # Wait for CRDs to register (post-install hook)
+          for i in $(seq 1 30); do
+            if kubectl get crd clusterissuers.cert-manager.io >/dev/null 2>&1; then
+              echo "cert-manager CRDs ready"
+              break
+            fi
+            printf "."
+            sleep 5
+          done
+          echo ""
+          kubectl get clusterissuers || true
           kubectl get certificates -n clay || true
 
       - name: Collect debug info on failure
