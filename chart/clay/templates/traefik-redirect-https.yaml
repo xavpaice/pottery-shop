@@ -1,0 +1,13 @@
+{{- if and .Values.ingress.enabled (eq .Values.ingress.className "traefik") .Values.ingress.tls.mode }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: redirect-https
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "clay.labels" . | nindent 4 }}
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true
+{{- end }}
