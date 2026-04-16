@@ -338,9 +338,11 @@ fi
 # ---------------------------------------------------------------------------
 # G-13 / TLS-02: selfsigned mode renders zero ACME resources
 # ---------------------------------------------------------------------------
-OUTPUT_SS_13=$("${HELM}" template release-test "${CHART_DIR}" \
+# Scope to our chart's templates only (subchart CRDs contain ACME references in OpenAPI descriptions)
+OUTPUT_SS_13_FULL=$("${HELM}" template release-test "${CHART_DIR}" \
   "${REQUIRED[@]}" \
   "${SELFSIGNED_INGRESS[@]}" 2>&1)
+OUTPUT_SS_13=$(echo "${OUTPUT_SS_13_FULL}" | awk '/^# Source: clay\/templates\//{p=1} /^# Source: clay\/charts\//{p=0} p')
 
 if contains_match "${OUTPUT_SS_13}" "acme-staging-v02"; then
     fail "G-13 TLS-02: selfsigned mode renders no ACME staging URL" \
