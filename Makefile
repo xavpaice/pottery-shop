@@ -36,8 +36,8 @@ tidy:
 
 ## helm-lint: lint the Helm chart
 helm-lint:
-	helm lint chart/clay/ -f chart/clay/ci/managed-values.yaml
-	helm lint chart/clay/ -f chart/clay/ci/external-values.yaml
+	helm lint chart/clay/ -f chart/clay/ci/ci-bundled-values.yaml
+	helm lint chart/clay/ -f chart/clay/ci/ci-external-db-values.yaml
 
 ## helm-test: run helm template behavioral tests (Phase 3 validation)
 helm-test:

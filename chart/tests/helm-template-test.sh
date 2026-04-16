@@ -31,6 +31,17 @@ fail() {
     FAIL=$((FAIL + 1))
 }
 
+# contains_match [-F] VAR PATTERN -- test if $VAR contains a grep match without SIGPIPE.
+# grep -q exits early, which causes SIGPIPE on large inputs under pipefail.
+# grep -c reads all input, so echo finishes before grep exits.
+contains_match() {
+    local flags=""
+    if [ "$1" = "-F" ]; then flags="-F"; shift; fi
+    local count
+    count=$(echo "$1" | grep -c $flags "$2" 2>/dev/null || true)
+    [ "$count" -gt 0 ]
+}
+
 # ---------------------------------------------------------------------------
 # Common --set flags required for a valid render (secrets validation guard)
 REQUIRED=(--set secrets.ADMIN_PASS=x --set secrets.SESSION_SECRET=x)
@@ -65,7 +76,7 @@ OUTPUT=$("${HELM}" template release-test "${CHART_DIR}" \
   "${REQUIRED[@]}" \
   "${CUSTOM_INGRESS[@]}" 2>&1)
 
-if echo "${OUTPUT}" | grep -q "ingressClassName: traefik"; then
+if contains_match "${OUTPUT}" "ingressClassName: traefik"; then
     pass "G-01 INGR-01: custom mode renders ingressClassName: traefik"
 else
     fail "G-01 INGR-01: custom mode renders ingressClassName: traefik" \
@@ -83,7 +94,7 @@ OUTPUT_CUSTOM=$("${HELM}" template release-test "${CHART_DIR}" \
   "${REQUIRED[@]}" \
   "${CUSTOM_INGRESS[@]}" 2>&1)
 
-if echo "${OUTPUT_CUSTOM}" | grep -q "traefik.ingress.kubernetes.io/router.entrypoints: websecure"; then
+if contains_match "${OUTPUT_CUSTOM}" "traefik.ingress.kubernetes.io/router.entrypoints: websecure"; then
     pass "G-02a INGR-02: custom mode renders traefik router.entrypoints: websecure annotation"
 else
     fail "G-02a INGR-02: custom mode renders traefik router.entrypoints: websecure annotation" \
@@ -97,7 +108,7 @@ OUTPUT_LE=$("${HELM}" template release-test "${CHART_DIR}" \
   --set ingress.tls.mode=letsencrypt \
   --set ingress.tls.acme.email=test@example.com 2>&1)
 
-if echo "${OUTPUT_LE}" | grep -q 'acme.cert-manager.io/http01-edit-in-place: "true"'; then
+if contains_match "${OUTPUT_LE}" 'acme.cert-manager.io/http01-edit-in-place: "true"'; then
     pass "G-02b INGR-02: letsencrypt mode renders acme.cert-manager.io/http01-edit-in-place: \"true\" annotation"
 else
     fail "G-02b INGR-02: letsencrypt mode renders acme.cert-manager.io/http01-edit-in-place: \"true\" annotation" \
@@ -111,7 +122,7 @@ ERR_NO_HOST=$("${HELM}" template release-test "${CHART_DIR}" \
   "${REQUIRED[@]}" \
   --set ingress.enabled=true 2>&1 || true)
 
-if echo "${ERR_NO_HOST}" | grep -q "ingress.host must be set"; then
+if contains_match "${ERR_NO_HOST}" "ingress.host must be set"; then
     pass "G-03 INGR-03: ingress.enabled=true with no host fails with 'ingress.host must be set'"
 else
     fail "G-03 INGR-03: ingress.enabled=true with no host fails with 'ingress.host must be set'" \
@@ -127,7 +138,7 @@ ERR_NO_EMAIL=$("${HELM}" template release-test "${CHART_DIR}" \
   --set ingress.host=shop.example.com \
   --set ingress.tls.mode=letsencrypt 2>&1 || true)
 
-if echo "${ERR_NO_EMAIL}" | grep -q "ingress.tls.acme.email required for letsencrypt mode"; then
+if contains_match "${ERR_NO_EMAIL}" "ingress.tls.acme.email required for letsencrypt mode"; then
     pass "G-04 INGR-03: letsencrypt mode with no acme.email fails with expected error"
 else
     fail "G-04 INGR-03: letsencrypt mode with no acme.email fails with expected error" \
@@ -143,7 +154,7 @@ ERR_NO_SECRET=$("${HELM}" template release-test "${CHART_DIR}" \
   --set ingress.host=shop.example.com \
   --set ingress.tls.mode=custom 2>&1 || true)
 
-if echo "${ERR_NO_SECRET}" | grep -q "ingress.tls.secretName required for custom mode"; then
+if contains_match "${ERR_NO_SECRET}" "ingress.tls.secretName required for custom mode"; then
     pass "G-05 INGR-03: custom mode with no secretName fails with expected error"
 else
     fail "G-05 INGR-03: custom mode with no secretName fails with expected error" \
@@ -173,7 +184,7 @@ OUTPUT_TLS=$("${HELM}" template release-test "${CHART_DIR}" \
   "${REQUIRED[@]}" \
   "${CUSTOM_INGRESS[@]}" 2>&1)
 
-if echo "${OUTPUT_TLS}" | grep -q "secretName: my-tls"; then
+if contains_match "${OUTPUT_TLS}" "secretName: my-tls"; then
     pass "G-07 TLS-03: custom mode TLS block renders secretName: my-tls (user-provided)"
 else
     fail "G-07 TLS-03: custom mode TLS block renders secretName: my-tls (user-provided)" \
@@ -230,21 +241,21 @@ OUTPUT_LE_09=$("${HELM}" template release-test "${CHART_DIR}" \
   "${REQUIRED[@]}" \
   "${LETSENCRYPT_INGRESS[@]}" 2>&1)
 
-if echo "${OUTPUT_LE_09}" | grep -q "^kind: ClusterIssuer"; then
+if contains_match "${OUTPUT_LE_09}" "^kind: ClusterIssuer"; then
     pass "G-09a TLS-01: letsencrypt mode renders ClusterIssuer resource"
 else
     fail "G-09a TLS-01: letsencrypt mode renders ClusterIssuer resource" \
          "Expected 'kind: ClusterIssuer' in letsencrypt mode output"
 fi
 
-if echo "${OUTPUT_LE_09}" | grep -q "acme-staging-v02.api.letsencrypt.org/directory"; then
+if contains_match "${OUTPUT_LE_09}" "acme-staging-v02.api.letsencrypt.org/directory"; then
     pass "G-09b TLS-01: letsencrypt mode ClusterIssuer uses ACME staging endpoint"
 else
     fail "G-09b TLS-01: letsencrypt mode ClusterIssuer uses ACME staging endpoint" \
          "Expected 'acme-staging-v02.api.letsencrypt.org/directory' in output"
 fi
 
-if echo "${OUTPUT_LE_09}" | grep -q "helm.sh/hook: post-install,post-upgrade"; then
+if contains_match "${OUTPUT_LE_09}" "helm.sh/hook: post-install,post-upgrade"; then
     pass "G-09c TLS-01: letsencrypt mode ClusterIssuer carries helm.sh/hook: post-install,post-upgrade annotation"
 else
     fail "G-09c TLS-01: letsencrypt mode ClusterIssuer carries helm.sh/hook: post-install,post-upgrade annotation" \
@@ -258,14 +269,14 @@ OUTPUT_LE_10=$("${HELM}" template release-test "${CHART_DIR}" \
   "${REQUIRED[@]}" \
   "${LETSENCRYPT_INGRESS[@]}" 2>&1)
 
-if echo "${OUTPUT_LE_10}" | grep -q "^kind: Certificate"; then
+if contains_match "${OUTPUT_LE_10}" "^kind: Certificate"; then
     pass "G-10a TLS-01: letsencrypt mode renders Certificate resource"
 else
     fail "G-10a TLS-01: letsencrypt mode renders Certificate resource" \
          "Expected 'kind: Certificate' in letsencrypt mode output"
 fi
 
-if echo "${OUTPUT_LE_10}" | grep -q "helm.sh/hook: post-install,post-upgrade"; then
+if contains_match "${OUTPUT_LE_10}" "helm.sh/hook: post-install,post-upgrade"; then
     pass "G-10b TLS-01: letsencrypt mode Certificate carries helm.sh/hook: post-install,post-upgrade annotation"
 else
     fail "G-10b TLS-01: letsencrypt mode Certificate carries helm.sh/hook: post-install,post-upgrade annotation" \
@@ -279,7 +290,7 @@ OUTPUT_LE_11=$("${HELM}" template release-test "${CHART_DIR}" \
   "${REQUIRED[@]}" \
   "${LETSENCRYPT_INGRESS[@]}" 2>&1)
 
-if echo "${OUTPUT_LE_11}" | grep -q "cert-manager.io/cluster-issuer: release-test-clay-letsencrypt"; then
+if contains_match "${OUTPUT_LE_11}" "cert-manager.io/cluster-issuer: release-test-clay-letsencrypt"; then
     pass "G-11 TLS-01: letsencrypt mode Ingress carries cert-manager.io/cluster-issuer annotation with release-derived name"
 else
     fail "G-11 TLS-01: letsencrypt mode Ingress carries cert-manager.io/cluster-issuer annotation with release-derived name" \
@@ -310,14 +321,14 @@ else
          "Expected 2 Certificate resources, got ${CERT_COUNT}"
 fi
 
-if echo "${OUTPUT_SS_12}" | grep -q "selfSigned: {}"; then
+if contains_match "${OUTPUT_SS_12}" "selfSigned: {}"; then
     pass "G-12c TLS-02: selfsigned mode renders SelfSigned root ClusterIssuer (selfSigned: {})"
 else
     fail "G-12c TLS-02: selfsigned mode renders SelfSigned root ClusterIssuer (selfSigned: {})" \
          "Expected 'selfSigned: {}' in selfsigned mode output"
 fi
 
-if echo "${OUTPUT_SS_12}" | grep -q "isCA: true"; then
+if contains_match "${OUTPUT_SS_12}" "isCA: true"; then
     pass "G-12d TLS-02: selfsigned mode renders CA Certificate with isCA: true"
 else
     fail "G-12d TLS-02: selfsigned mode renders CA Certificate with isCA: true" \
@@ -331,7 +342,7 @@ OUTPUT_SS_13=$("${HELM}" template release-test "${CHART_DIR}" \
   "${REQUIRED[@]}" \
   "${SELFSIGNED_INGRESS[@]}" 2>&1)
 
-if echo "${OUTPUT_SS_13}" | grep -q "acme-staging-v02"; then
+if contains_match "${OUTPUT_SS_13}" "acme-staging-v02"; then
     fail "G-13 TLS-02: selfsigned mode renders no ACME staging URL" \
          "Found 'acme-staging-v02' in selfsigned mode output — should not appear"
 else
@@ -379,7 +390,7 @@ else
          "Expected 2 Job resources, got ${JOB_COUNT}"
 fi
 
-if echo "${OUTPUT_WH_15}" | grep -q "name: release-test-clay-webhook-wait"; then
+if contains_match "${OUTPUT_WH_15}" "name: release-test-clay-webhook-wait"; then
     pass "G-15b WBHK-03: ServiceAccount named release-test-clay-webhook-wait present"
 else
     fail "G-15b WBHK-03: ServiceAccount named release-test-clay-webhook-wait present" \
@@ -397,14 +408,14 @@ else
          "Expected ServiceAccount with webhook-wait name, got ${SA_COUNT}"
 fi
 
-if echo "${OUTPUT_WH_15}" | grep -q "^kind: ClusterRole$"; then
+if contains_match "${OUTPUT_WH_15}" "^kind: ClusterRole$"; then
     pass "G-15d WBHK-03: ClusterRole resource present"
 else
     fail "G-15d WBHK-03: ClusterRole resource present" \
          "Expected 'kind: ClusterRole' (not ClusterRoleBinding) in output"
 fi
 
-if echo "${OUTPUT_WH_15}" | grep -q "^kind: ClusterRoleBinding"; then
+if contains_match "${OUTPUT_WH_15}" "^kind: ClusterRoleBinding"; then
     pass "G-15e WBHK-03: ClusterRoleBinding resource present"
 else
     fail "G-15e WBHK-03: ClusterRoleBinding resource present" \
@@ -418,7 +429,7 @@ OUTPUT_WH_16=$("${HELM}" template release-test "${CHART_DIR}" \
   "${REQUIRED[@]}" \
   --set 'cloudnative-pg.enabled=false' 2>&1)
 
-if echo "${OUTPUT_WH_16}" | grep -q "cnpg-webhook-wait"; then
+if contains_match "${OUTPUT_WH_16}" "cnpg-webhook-wait"; then
     fail "G-16 WBHK-04: cloudnative-pg disabled renders no CNPG webhook-wait Job" \
          "Found 'cnpg-webhook-wait' in output -- should not appear when cloudnative-pg.enabled=false"
 else
@@ -432,7 +443,7 @@ OUTPUT_WH_17=$("${HELM}" template release-test "${CHART_DIR}" \
   "${REQUIRED[@]}" \
   --set 'cert-manager.enabled=false' 2>&1)
 
-if echo "${OUTPUT_WH_17}" | grep -q "cert-manager-webhook-wait"; then
+if contains_match "${OUTPUT_WH_17}" "cert-manager-webhook-wait"; then
     fail "G-17 WBHK-04: cert-manager disabled renders no cert-manager webhook-wait Job" \
          "Found 'cert-manager-webhook-wait' in output -- should not appear when cert-manager.enabled=false"
 else
@@ -473,7 +484,7 @@ OUTPUT_WH_19=$("${HELM}" template release-test "${CHART_DIR}" \
 # Extract only the webhook-wait-rbac.yaml section to avoid false positives from subcharts
 RBAC_SECTION_19=$(echo "${OUTPUT_WH_19}" | awk '/# Source: clay\/templates\/webhook-wait-rbac\.yaml/{p=1} /^# Source:/{if(p && !/webhook-wait-rbac/){p=0}} p')
 
-if echo "${RBAC_SECTION_19}" | grep -qF '"*"'; then
+if contains_match -F "${RBAC_SECTION_19}" '"*"'; then
     fail "G-19 WBHK-03: ClusterRole contains no wildcard rules" \
          "Found '\"*\"' in webhook-wait-rbac output -- ClusterRole must not grant wildcard permissions"
 else
@@ -490,21 +501,21 @@ CLUSTER_SECTION=$(echo "${OUTPUT_G20}" | awk \
   '/# Source: clay\/templates\/cnpg-cluster\.yaml/{p=1} \
    /^# Source:/{if(p && !/cnpg-cluster/){p=0}} p')
 
-if echo "${CLUSTER_SECTION}" | grep -q '"helm.sh/hook": post-install,post-upgrade'; then
+if contains_match "${CLUSTER_SECTION}" '"helm.sh/hook": post-install,post-upgrade'; then
     pass "G-20a HOOK-01: cnpg-cluster carries helm.sh/hook: post-install,post-upgrade"
 else
     fail "G-20a HOOK-01: cnpg-cluster carries helm.sh/hook: post-install,post-upgrade" \
          "Expected hook annotation in cnpg-cluster section"
 fi
 
-if echo "${CLUSTER_SECTION}" | grep -q '"helm.sh/hook-weight": "-10"'; then
+if contains_match "${CLUSTER_SECTION}" '"helm.sh/hook-weight": "-10"'; then
     pass "G-20b HOOK-01: cnpg-cluster carries hook-weight -10"
 else
     fail "G-20b HOOK-01: cnpg-cluster carries hook-weight -10" \
          "Expected weight -10 in cnpg-cluster section"
 fi
 
-if echo "${CLUSTER_SECTION}" | grep -q '"helm.sh/hook-delete-policy": before-hook-creation'; then
+if contains_match "${CLUSTER_SECTION}" '"helm.sh/hook-delete-policy": before-hook-creation'; then
     pass "G-20c HOOK-01: cnpg-cluster carries hook-delete-policy before-hook-creation"
 else
     fail "G-20c HOOK-01: cnpg-cluster carries hook-delete-policy before-hook-creation" \
@@ -554,14 +565,14 @@ LE_SECTION=$(echo "${OUTPUT_G23}" | awk \
   '/# Source: clay\/templates\/cert-manager-letsencrypt\.yaml/{p=1} \
    /^# Source:/{if(p && !/cert-manager-letsencrypt/){p=0}} p')
 
-if echo "${LE_SECTION}" | grep -q 'helm.sh/hook-weight: "-5"'; then
+if contains_match "${LE_SECTION}" 'helm.sh/hook-weight: "-5"'; then
     pass "G-23a HOOK-02: letsencrypt ClusterIssuer carries hook-weight -5"
 else
     fail "G-23a HOOK-02: letsencrypt ClusterIssuer carries hook-weight -5" \
          "Expected 'helm.sh/hook-weight: \"-5\"' in cert-manager-letsencrypt section"
 fi
 
-if echo "${LE_SECTION}" | grep -q 'helm.sh/hook-weight: "0"'; then
+if contains_match "${LE_SECTION}" 'helm.sh/hook-weight: "0"'; then
     pass "G-23b HOOK-02: letsencrypt Certificate carries hook-weight 0"
 else
     fail "G-23b HOOK-02: letsencrypt Certificate carries hook-weight 0" \
