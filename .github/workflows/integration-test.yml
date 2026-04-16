@@ -80,6 +80,7 @@ jobs:
             --set secrets.SESSION_SECRET=ci-test-session-secret-not-for-production \
             --set ingress.enabled=false \
             --set persistence.enabled=false \
+            --set cert-manager.startupapicheck.enabled=false \
             --timeout 5m
 
       - name: Wait for Postgres cluster
