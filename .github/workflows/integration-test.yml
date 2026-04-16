@@ -70,7 +70,8 @@ jobs:
             --docker-username=${{ github.actor }} \
             --docker-password=${{ secrets.GITHUB_TOKEN }}
 
-          # Install the chart with test-appropriate values
+          # Install the chart (no --wait: the app init container waits for Postgres,
+          # but the CNPG Cluster CR is a post-install hook, so --wait would deadlock)
           helm install clay chart/clay/ \
             --namespace clay \
             --set image.tag=pr-${{ github.event.pull_request.number }} \
@@ -79,13 +80,26 @@ jobs:
             --set secrets.SESSION_SECRET=ci-test-session-secret-not-for-production \
             --set ingress.enabled=false \
             --set persistence.enabled=false \
-            --wait \
             --timeout 5m
+
+      - name: Wait for Postgres cluster
+        run: |
+          echo "Waiting for CNPG Postgres cluster..."
+          for i in $(seq 1 60); do
+            PHASE=$(kubectl get clusters.postgresql.cnpg.io -n clay clay-postgres -o jsonpath='{.status.phase}' 2>/dev/null || echo "pending")
+            if echo "$PHASE" | grep -q "Cluster in healthy state"; then
+              echo "Postgres ready"
+              break
+            fi
+            printf "."
+            sleep 5
+          done
+          echo ""
 
       - name: Verify deployment
         run: |
-          kubectl get pods -n clay
           kubectl rollout status deployment/clay -n clay --timeout=120s
+          kubectl get pods -n clay
 
           # Verify the pod is actually responding
           POD_NAME=$(kubectl get pods -n clay -l app.kubernetes.io/name=clay -o jsonpath='{.items[0].metadata.name}')
