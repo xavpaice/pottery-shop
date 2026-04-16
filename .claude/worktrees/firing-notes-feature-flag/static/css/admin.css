@@ -1,0 +1,245 @@
+/* ===== Admin Styles ===== */
+.admin-body {
+    background: var(--sand);
+}
+
+.admin-header {
+    background: var(--earth);
+    padding: 0.75rem 0;
+    border-bottom: none;
+}
+
+.admin-header .logo {
+    color: var(--sand);
+}
+
+.admin-header .logo:hover {
+    color: var(--white);
+}
+
+.admin-header .main-nav a {
+    color: var(--sand);
+    font-size: 0.9rem;
+}
+
+.admin-header .main-nav a:hover {
+    color: var(--white);
+}
+
+.admin-main {
+    padding-top: 2rem;
+}
+
+.admin-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+}
+
+.admin-toolbar h1 {
+    font-size: 1.5rem;
+    color: var(--earth);
+    font-weight: normal;
+}
+
+/* ===== Admin Table ===== */
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--white);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+}
+
+.admin-table th {
+    background: var(--sand);
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-light);
+}
+
+.admin-table td {
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--sand);
+    vertical-align: middle;
+}
+
+.admin-table a {
+    color: var(--clay);
+}
+
+.table-thumb {
+    width: 60px;
+}
+
+.table-thumb img {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.no-thumb {
+    color: var(--text-light);
+}
+
+.inline-form {
+    display: inline;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: opacity var(--transition);
+}
+
+.status-badge.available {
+    background: var(--green-light);
+    color: var(--green);
+}
+
+.status-badge.sold {
+    background: var(--red-light);
+    color: var(--red);
+}
+
+.status-badge:hover {
+    opacity: 0.8;
+}
+
+.actions {
+    white-space: nowrap;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+/* ===== Product Form ===== */
+.product-form {
+    max-width: 700px;
+    background: var(--white);
+    padding: 2rem;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-top: 1.5rem;
+}
+
+.form-row {
+    display: flex;
+    gap: 2rem;
+    align-items: flex-end;
+}
+
+.form-row .form-group {
+    flex: 1;
+}
+
+.checkbox-label {
+    display: flex !important;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    padding: 0.65rem 0;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--clay);
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--sand);
+}
+
+input[type="file"] {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 0.9rem;
+}
+
+/* ===== Current Images ===== */
+.current-images {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+}
+
+.current-image {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--sand);
+}
+
+.current-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.btn-remove-image {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.6);
+    color: var(--white);
+    border: none;
+    cursor: pointer;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity var(--transition);
+}
+
+.current-image:hover .btn-remove-image {
+    opacity: 1;
+}
+
+.delete-image-form {
+    display: contents;
+}
+
+/* ===== Responsive Admin ===== */
+@media (max-width: 768px) {
+    .admin-table {
+        font-size: 0.85rem;
+    }
+
+    .table-thumb {
+        display: none;
+    }
+
+    .form-row {
+        flex-direction: column;
+        gap: 0;
+    }
+
+    .product-form {
+        padding: 1.25rem;
+    }
+}

@@ -1,0 +1,308 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "replicaCount": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 1
+    },
+    "image": {
+      "type": "object",
+      "properties": {
+        "repository": {
+          "type": "string"
+        },
+        "tag": {
+          "type": "string"
+        },
+        "pullPolicy": {
+          "type": "string",
+          "enum": ["Always", "IfNotPresent", "Never"]
+        }
+      },
+      "required": ["repository", "tag"]
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" }
+        }
+      }
+    },
+    "nameOverride": {
+      "type": "string"
+    },
+    "fullnameOverride": {
+      "type": "string"
+    },
+    "service": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["ClusterIP", "NodePort", "LoadBalancer"]
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        }
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "className": {
+          "type": "string",
+          "description": "ingressClassName -- override for non-Traefik controllers"
+        },
+        "host": {
+          "type": "string",
+          "description": "Required when ingress is enabled (e.g. shop.example.com)"
+        },
+        "tls": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": ["", "letsencrypt", "selfsigned", "custom"],
+              "description": "Required when ingress is enabled"
+            },
+            "secretName": {
+              "type": "string",
+              "description": "custom mode only -- name of pre-existing TLS Secret"
+            },
+            "acme": {
+              "type": "object",
+              "properties": {
+                "email": {
+                  "type": "string",
+                  "description": "letsencrypt mode only -- required for ACME registration"
+                },
+                "production": {
+                  "type": "boolean",
+                  "description": "false = staging ACME endpoint"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "config": {
+      "type": "object",
+      "properties": {
+        "PORT": { "type": "string" },
+        "BASE_URL": { "type": "string" },
+        "ADMIN_USER": { "type": "string" },
+        "UPLOAD_DIR": { "type": "string" },
+        "SMTP_HOST": { "type": "string" },
+        "SMTP_PORT": { "type": "string" },
+        "SMTP_FROM": { "type": "string" },
+        "ORDER_EMAIL": {
+          "type": "string",
+          "description": "Required -- recipient address for order notification emails"
+        }
+      }
+    },
+    "secrets": {
+      "type": "object",
+      "properties": {
+        "ADMIN_PASS": {
+          "type": "string",
+          "description": "Required -- must be set at deploy time"
+        },
+        "SESSION_SECRET": {
+          "type": "string",
+          "description": "Required -- must be set at deploy time"
+        },
+        "SMTP_USER": { "type": "string" },
+        "SMTP_PASS": { "type": "string" }
+      },
+      "required": ["ADMIN_PASS", "SESSION_SECRET"]
+    },
+    "persistence": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "accessMode": {
+          "type": "string",
+          "enum": ["ReadWriteOnce", "ReadWriteMany", "ReadOnlyMany"]
+        },
+        "size": {
+          "type": "string",
+          "pattern": "^[0-9]+(Gi|Mi|Ti)$"
+        },
+        "storageClass": { "type": "string" },
+        "existingClaim": { "type": "string" }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "properties": {
+        "requests": {
+          "type": "object",
+          "properties": {
+            "cpu": { "type": "string" },
+            "memory": { "type": "string" }
+          }
+        },
+        "limits": {
+          "type": "object",
+          "properties": {
+            "cpu": { "type": "string" },
+            "memory": { "type": "string" }
+          }
+        }
+      }
+    },
+    "containerPort": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535
+    },
+    "readinessProbe": {
+      "type": "object",
+      "properties": {
+        "httpGet": {
+          "type": "object",
+          "properties": {
+            "path": { "type": "string" },
+            "port": { "type": "integer" }
+          }
+        },
+        "initialDelaySeconds": { "type": "integer", "minimum": 0 },
+        "periodSeconds": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "livenessProbe": {
+      "type": "object",
+      "properties": {
+        "httpGet": {
+          "type": "object",
+          "properties": {
+            "path": { "type": "string" },
+            "port": { "type": "integer" }
+          }
+        },
+        "initialDelaySeconds": { "type": "integer", "minimum": 0 },
+        "periodSeconds": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "startupProbe": {
+      "type": "object",
+      "properties": {
+        "httpGet": {
+          "type": "object",
+          "properties": {
+            "path": { "type": "string" },
+            "port": { "type": "integer" }
+          }
+        },
+        "failureThreshold": { "type": "integer", "minimum": 1 },
+        "periodSeconds": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "nodeSelector": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "tolerations": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "affinity": {
+      "type": "object"
+    },
+    "postgres": {
+      "type": "object",
+      "properties": {
+        "managed": {
+          "type": "boolean",
+          "description": "true = CNPG manages an in-cluster Postgres; false = use external DSN"
+        },
+        "cluster": {
+          "type": "object",
+          "description": "CNPG cluster settings (managed mode only)",
+          "properties": {
+            "instances": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "storage": {
+              "type": "object",
+              "properties": {
+                "size": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(Gi|Mi|Ti)$"
+                },
+                "storageClass": { "type": "string" }
+              }
+            }
+          }
+        },
+        "external": {
+          "type": "object",
+          "description": "External Postgres settings (managed=false only)",
+          "properties": {
+            "dsn": {
+              "type": "string",
+              "description": "Do not embed credentials -- use a Kubernetes Secret reference instead"
+            }
+          }
+        }
+      }
+    },
+    "waitForPostgres": {
+      "type": "object",
+      "properties": {
+        "image": {
+          "type": "string",
+          "description": "Pin to a specific patch version to avoid mutable-tag supply-chain risk"
+        }
+      }
+    },
+    "cloudnative-pg": {
+      "type": "object",
+      "description": "CloudNativePG operator subchart toggle (D-06)",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "true = bundle and install CNPG operator as a subchart; false = operator is pre-installed"
+        }
+      }
+    },
+    "cert-manager": {
+      "type": "object",
+      "description": "cert-manager operator subchart toggle (D-06)",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "true = bundle and install cert-manager as a subchart; false = operator is pre-installed"
+        }
+      }
+    },
+    "features": {
+      "type": "object",
+      "description": "Optional feature flags — set to false to disable. Defaults are true to preserve existing behaviour on upgrade.",
+      "properties": {
+        "firingLogs": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable seller kiln-session tracking (firing logs + temperature readings). Planned for license gating in a future release."
+            }
+          }
+        }
+      }
+    }
+  },
+  "required": ["image", "secrets"]
+}

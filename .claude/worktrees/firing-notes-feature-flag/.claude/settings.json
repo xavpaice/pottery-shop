@@ -86,8 +86,5 @@
   "statusLine": {
     "type": "command",
     "command": "node .claude/hooks/gsd-statusline.js"
-  },
-  "enabledPlugins": {
-    "launch@replicated-plugins": true
   }
 }

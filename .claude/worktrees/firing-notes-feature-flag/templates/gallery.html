@@ -1,0 +1,36 @@
+{{define "gallery.html"}}
+{{template "header" .}}
+
+<section class="hero">
+    <h1>Gallery</h1>
+    <p>A look back at pieces that have found new homes.</p>
+</section>
+
+{{if .Products}}
+<div class="product-grid">
+    {{range .Products}}
+    <a href="/product/{{.ID}}" class="product-card sold-card">
+        <div class="product-image">
+            {{if .Images}}
+            <img src="/uploads/thumbnails/{{(index .Images 0).ThumbnailFn}}" alt="{{.Title}}" loading="lazy">
+            {{else}}
+            <div class="no-image">🏺</div>
+            {{end}}
+            <span class="sold-badge">Sold</span>
+        </div>
+        <div class="product-info">
+            <h3>{{.Title}}</h3>
+            {{if .SellerName}}<p class="seller-name">by <a href="/seller/{{.SellerID}}">{{.SellerName}}</a></p>{{end}}
+        </div>
+    </a>
+    {{end}}
+</div>
+{{else}}
+<div class="empty-state">
+    <p>No sold pieces yet — everything is still available!</p>
+    <a href="/" class="btn btn-secondary">Browse the shop</a>
+</div>
+{{end}}
+
+{{template "footer" .}}
+{{end}}

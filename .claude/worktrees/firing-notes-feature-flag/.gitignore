@@ -1,0 +1,8 @@
+uploads/thumbnails/*.jpeg
+uploads/*.jpeg
+pottery.db
+.env
+pottery-server
+server
+.envrc
+.planning/

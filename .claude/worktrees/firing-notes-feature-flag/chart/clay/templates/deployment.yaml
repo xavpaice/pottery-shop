@@ -1,0 +1,101 @@
+{{- include "clay.validateSecrets" . }}
+{{- include "clay.validateDB" . }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "clay.fullname" . }}
+  labels:
+    {{- include "clay.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      {{- include "clay.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "clay.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.postgres.managed }}
+      initContainers:
+        - name: wait-for-postgres
+          image: {{ .Values.waitForPostgres.image | default "postgres:16.3-alpine3.20" }}
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h {{ include "clay.fullname" . }}-postgres-rw; do
+                echo "Waiting for Postgres to become ready..."
+                sleep 2
+              done
+              echo "Postgres is ready."
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: FEATURE_FIRING_LOGS_ENABLED
+              value: {{ .Values.features.firingLogs.enabled | toString | quote }}
+            {{- if .Values.postgres.managed }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "clay.fullname" . }}-postgres-app
+                  key: uri
+            {{- else if .Values.postgres.external.dsn }}
+            - name: DATABASE_URL
+              value: {{ .Values.postgres.external.dsn | quote }}
+            {{- end }}
+          ports:
+            - containerPort: {{ .Values.containerPort }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "clay.fullname" . }}
+            - secretRef:
+                name: {{ include "clay.fullname" . }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim | default (printf "%s-data" (include "clay.fullname" .)) }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

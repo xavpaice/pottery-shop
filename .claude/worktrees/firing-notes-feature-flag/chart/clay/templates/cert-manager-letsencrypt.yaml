@@ -1,0 +1,48 @@
+{{- if and .Values.ingress.enabled (eq .Values.ingress.tls.mode "letsencrypt") }}
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ include "clay.fullname" . }}-letsencrypt
+  labels:
+    {{- include "clay.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+    helm.sh/hook-weight: "-5"
+spec:
+  acme:
+    email: {{ .Values.ingress.tls.acme.email }}
+    {{- if .Values.ingress.tls.acme.production }}
+    # ACME production endpoint
+    server: https://acme-v02.api.letsencrypt.org/directory
+    {{- else }}
+    # ACME staging endpoint (default) -- switch to production via ingress.tls.acme.production: true
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    {{- end }}
+    privateKeySecretRef:
+      name: {{ include "clay.fullname" . }}-letsencrypt-key
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: {{ .Values.ingress.className }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "clay.fullname" . }}-tls-cert
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "clay.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+    helm.sh/hook-weight: "0"
+spec:
+  secretName: {{ include "clay.tlsSecretName" . }}
+  dnsNames:
+    - {{ .Values.ingress.host }}
+  issuerRef:
+    name: {{ include "clay.fullname" . }}-letsencrypt
+    kind: ClusterIssuer
+    group: cert-manager.io
+{{- end }}

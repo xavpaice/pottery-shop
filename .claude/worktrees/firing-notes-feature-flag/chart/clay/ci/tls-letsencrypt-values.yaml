@@ -1,0 +1,22 @@
+# CI test values for letsencrypt TLS mode
+secrets:
+  ADMIN_PASS: "ci-test-only"
+  SESSION_SECRET: "ci-test-session-secret-not-for-production"
+
+postgres:
+  managed: true
+  cluster:
+    instances: 1
+    storage:
+      size: 1Gi
+      storageClass: ""
+  external:
+    dsn: ""
+
+ingress:
+  enabled: true
+  host: shop.example.com
+  tls:
+    mode: letsencrypt
+    acme:
+      email: admin@example.com
