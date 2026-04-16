@@ -74,14 +74,17 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if seller == nil || !h.sellers.CheckPassword(seller, password) {
+		log.Printf("Login: failed attempt for email=%s", email)
 		h.renderLoginError(w, r, "Invalid email or password")
 		return
 	}
 	if !seller.IsActive {
+		log.Printf("Login: inactive account login attempt: email=%s id=%d", seller.Email, seller.ID)
 		h.renderLoginError(w, r, "Your account is pending approval. You will be notified when it is approved.")
 		return
 	}
 
+	log.Printf("Login: seller authenticated: name=%q email=%s id=%d", seller.Name, seller.Email, seller.ID)
 	session.SellerID = seller.ID
 	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 }
@@ -119,7 +122,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	seller, err := h.sellers.Create(r.Context(), email, password, name)
 	if err != nil {
-		log.Printf("Register: error creating seller: %v", err)
+		log.Printf("Register: failed to create account for %s: %v", email, err)
 		// Check for duplicate email (unique constraint violation)
 		if strings.Contains(err.Error(), "unique") || strings.Contains(err.Error(), "duplicate") {
 			h.renderRegisterError(w, r, "An account with that email already exists")
@@ -128,6 +131,8 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Registration failed, please try again", http.StatusInternalServerError)
 		return
 	}
+
+	log.Printf("Register: new seller account created: name=%q email=%s id=%d", seller.Name, seller.Email, seller.ID)
 
 	// Send approval email — failure is logged but does not block registration.
 	if err := h.sendApprovalEmail(seller.ApprovalToken); err != nil {
@@ -201,6 +206,8 @@ func (h *AuthHandler) ApproveSellerByToken(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+
+	log.Printf("ApproveSellerByToken: seller approved: name=%q email=%s id=%d", seller.Name, seller.Email, seller.ID)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprintf(w, `<!DOCTYPE html><html><body><p>Seller <strong>%s</strong> approved. They can now log in.</p></body></html>`,

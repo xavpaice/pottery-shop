@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="420" viewBox="0 0 1600 420" fill="none">
+  <rect width="1600" height="420" fill="#1F1A17"/>
+  <g transform="translate(180 210)">
+    <path d="M 0,-112 C 18,-112 24,-98 24,-82 C 24,-58 8,-42 8,-20 C 8,12 35,34 35,78 L 35,116 L -35,116 L -35,78 C -35,34 -8,12 -8,-20 C -8,-42 -24,-58 -24,-82 C -24,-98 -18,-112 0,-112 Z" fill="#F5F1EB"/>
+    <path d="M 11,-76 C 0,-62 -6,-44 -8,-18 C -11,16 8,40 12,70 C 14,88 6,102 -2,116 L 17,116 C 27,97 30,82 28,62 C 25,35 8,8 11,-24 C 13,-46 21,-62 29,-74 Z" fill="#1F1A17"/>
+  </g>
+  <text x="370" y="238"
+        font-family="Iowan Old Style, Baskerville, Georgia, 'Times New Roman', serif"
+        font-size="126" fill="#F5F1EB" letter-spacing="1">clay.nz</text>
+  <text x="372" y="295"
+        font-family="Inter, Avenir, Helvetica, Arial, sans-serif"
+        font-size="30" fill="#E7DED3" letter-spacing="7">ONLINE GALLERY</text>
+</svg>
