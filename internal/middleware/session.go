@@ -98,6 +98,16 @@ type sessionWriter struct {
 	written bool
 }
 
+func (sw *sessionWriter) WriteHeader(code int) {
+	sw.saveSession()
+	sw.ResponseWriter.WriteHeader(code)
+}
+
+func (sw *sessionWriter) Write(b []byte) (int, error) {
+	sw.saveSession()
+	return sw.ResponseWriter.Write(b)
+}
+
 func (sw *sessionWriter) saveSession() {
 	if !sw.written {
 		sw.written = true

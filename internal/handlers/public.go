@@ -218,6 +218,8 @@ func (h *PublicHandler) AddToCart(w http.ResponseWriter, r *http.Request) {
 		Thumbnail: thumb,
 	})
 
+	log.Printf("AddToCart: product added: id=%d title=%q price=%.2f cart_count=%d", product.ID, product.Title, product.Price, cart.Count())
+
 	cartJSON, _ := cart.Marshal()
 	session.CartJSON = cartJSON
 	session.Flash = fmt.Sprintf("'%s' added to cart", product.Title)
