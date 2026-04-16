@@ -94,11 +94,11 @@ OUTPUT_CUSTOM=$("${HELM}" template release-test "${CHART_DIR}" \
   "${REQUIRED[@]}" \
   "${CUSTOM_INGRESS[@]}" 2>&1)
 
-if contains_match "${OUTPUT_CUSTOM}" "traefik.ingress.kubernetes.io/router.entrypoints: websecure"; then
-    pass "G-02a INGR-02: custom mode renders traefik router.entrypoints: websecure annotation"
+if contains_match "${OUTPUT_CUSTOM}" "traefik.ingress.kubernetes.io/router.entrypoints: web,websecure"; then
+    pass "G-02a INGR-02: custom mode renders traefik router.entrypoints: web,websecure annotation"
 else
-    fail "G-02a INGR-02: custom mode renders traefik router.entrypoints: websecure annotation" \
-         "Expected 'traefik.ingress.kubernetes.io/router.entrypoints: websecure' in output"
+    fail "G-02a INGR-02: custom mode renders traefik router.entrypoints: web,websecure annotation" \
+         "Expected 'traefik.ingress.kubernetes.io/router.entrypoints: web,websecure' in output"
 fi
 
 OUTPUT_LE=$("${HELM}" template release-test "${CHART_DIR}" \

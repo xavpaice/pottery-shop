@@ -138,6 +138,43 @@ docker run -p 8080:8080 --network clay-net \
 
 A Helm chart is provided in `chart/clay/`. This is the recommended way to deploy.
 
+#### Quick setup for a k3s based VM
+
+```bash
+curl -sfL https://get.k3s.io | sh - 
+curl -sfL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4 | bash
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+```
+
+#### Prerequisites
+
+The container image is hosted on a private GitHub Container Registry. You must create an image pull secret so the pods can pull the image. Create it **after** the Helm install (which creates the namespace), then the pod will pick it up on its next retry.
+
+1. Install the chart first (this creates the namespace):
+
+```bash
+helm install clay ./chart/clay -n clay --create-namespace -f prod.yaml
+```
+
+2. Then create the pull secret in the new namespace:
+
+```bash
+kubectl create secret docker-registry ghcr-secret \
+  -n clay \
+  --docker-server=ghcr.io \
+  --docker-username=xavpaice \
+  --docker-password=<PAT with read:packages scope>
+```
+
+Reference the secret in your values file:
+
+```yaml
+imagePullSecrets:
+  - name: ghcr-secret
+```
+
+> **Note:** Do not create the namespace manually before `helm install --create-namespace` -- Helm requires ownership labels on the namespace and will reject a namespace it didn't create.
+
 #### Default install (operators bundled)
 
 Both the CloudNative-PG and cert-manager operators install automatically as Helm subcharts. No separate operator setup is needed.
@@ -207,33 +244,7 @@ Key `values.yaml` settings to customise:
 | `ingress.host` | `""` | Hostname (**required** when `ingress.enabled: true`) |
 | `ingress.tls.mode` | `""` | TLS mode: `letsencrypt`, `selfsigned`, or `custom` |
 | `persistence.size` | `5Gi` | PVC for uploaded images |
-| `imagePullSecrets` | `[]` | Required for private images (see below) |
-
-#### Private image registry
-
-The container image is private (matching the repo visibility). To pull it from your cluster, create an image pull secret:
-
-```bash
-kubectl create secret docker-registry ghcr-creds \
-  -n clay \
-  --docker-server=ghcr.io \
-  --docker-username=xavpaice \
-  --docker-password=<PAT with read:packages scope>
-```
-
-Then set it in your values:
-
-```yaml
-imagePullSecrets:
-  - name: ghcr-creds
-```
-
-Or via the command line:
-
-```bash
-helm install clay ./chart/clay -n clay --create-namespace \
-  --set imagePullSecrets[0].name=ghcr-creds
-```
+| `imagePullSecrets` | `[]` | Required for private images (see Prerequisites above) |
 
 #### Upgrading from a pre-umbrella chart
 
