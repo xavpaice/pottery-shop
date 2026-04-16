@@ -1,7 +1,9 @@
-.PHONY: build test test-verbose clean run docker helm-lint lint integration-test
+.PHONY: build test test-verbose clean run run-local run-stop docker helm-lint lint integration-test
 
 BINARY := pottery-server
 GO := go
+K3D_CLUSTER := pottery
+K3D_IMAGE := pottery-shop:dev
 
 ## build: compile the server binary
 build:
@@ -25,9 +27,55 @@ test-coverage:
 clean:
 	rm -f $(BINARY) coverage.out coverage.html
 
-## run: build and run the server
-run: build
+## run: build image, deploy to local k3d cluster, port-forward to localhost:8080
+run:
+	@command -v k3d >/dev/null 2>&1 || { echo "Error: k3d not installed. Run: brew install k3d"; exit 1; }
+	@command -v helm >/dev/null 2>&1 || { echo "Error: helm not installed. Run: brew install helm"; exit 1; }
+	@echo "--- Ensuring k3d cluster '$(K3D_CLUSTER)' exists ---"
+	@k3d cluster list $(K3D_CLUSTER) >/dev/null 2>&1 || \
+		k3d cluster create $(K3D_CLUSTER) --no-lb --wait
+	@echo "--- Building image ---"
+	docker build -t $(K3D_IMAGE) .
+	@echo "--- Importing image into k3d ---"
+	k3d image import $(K3D_IMAGE) -c $(K3D_CLUSTER)
+	@echo "--- Updating chart dependencies ---"
+	helm dependency update chart/clay/
+	@echo "--- Installing chart ---"
+	@kubectl --context k3d-$(K3D_CLUSTER) create namespace clay 2>/dev/null || true
+	helm upgrade --install clay chart/clay/ \
+		--namespace clay \
+		--set image.repository=pottery-shop \
+		--set image.tag=dev \
+		--set image.pullPolicy=Never \
+		--set ingress.enabled=false \
+		--set persistence.enabled=false \
+		--set secrets.ADMIN_PASS=localdev \
+		--set secrets.SESSION_SECRET=localdev-session-secret-min-32chars \
+		--timeout 5m
+	@echo "--- Waiting for Postgres cluster to become ready ---"
+	@for i in $$(seq 1 60); do \
+		if kubectl --context k3d-$(K3D_CLUSTER) get clusters.postgresql.cnpg.io -n clay clay-postgres -o jsonpath='{.status.phase}' 2>/dev/null | grep -q "Cluster in healthy state"; then \
+			echo "Postgres ready"; break; \
+		fi; \
+		printf "."; sleep 5; \
+	done
+	@echo ""
+	@echo "--- Waiting for app deployment ---"
+	@kubectl --context k3d-$(K3D_CLUSTER) rollout status deployment/clay -n clay --timeout=120s
+	@echo "--- Cluster ready ---"
+	@kubectl --context k3d-$(K3D_CLUSTER) get pods -n clay
+	@echo ""
+	@echo "Port-forward: kubectl --context k3d-$(K3D_CLUSTER) port-forward -n clay svc/clay 8080:80"
+	@echo "Admin login:  admin / localdev"
+	@echo "Stop cluster: make run-stop"
+
+## run-local: build and run the server binary directly (no k8s)
+run-local: build
 	./$(BINARY)
+
+## run-stop: delete the local k3d cluster
+run-stop:
+	k3d cluster delete $(K3D_CLUSTER)
 
 ## tidy: tidy and verify module dependencies
 tidy:

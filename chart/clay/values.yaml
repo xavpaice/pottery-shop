@@ -15,29 +15,6 @@ service:
   type: ClusterIP
   port: 80
 
-# -- Ingress configuration
-#
-# MIGRATION NOTE (v0.1.0 -> v0.2.0): The ingress block shape has changed.
-#
-# OLD shape (removed):
-#   ingress:
-#     enabled: true
-#     className: ""
-#     annotations:
-#       nginx.ingress.kubernetes.io/proxy-body-size: "50m"
-#     hosts:
-#       - host: clay.nz
-#         paths:
-#           - path: /
-#             pathType: Prefix
-#     tls:
-#       - secretName: clay-tls
-#         hosts:
-#           - clay.nz
-#
-# NEW shape (below): single host scalar, mode-driven TLS, Traefik annotations hardcoded.
-# Note: className now defaults to "traefik" (was ""). Set className: "" for other controllers.
-#
 ingress:
   enabled: false
   className: traefik          # ingressClassName field -- override for non-Traefik controllers
