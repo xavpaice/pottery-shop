@@ -139,7 +139,7 @@ Image pull secrets
   {{- end -}}
 
   {{/* use the pull secret created by the SDK */}}
-  {{- if hasKey ((.Values.global).replicated) "dockerconfigjson" }}
+  {{- if and (.Values.global) ((.Values.global).replicated) (hasKey (.Values.global).replicated "dockerconfigjson") }}
     {{- $pullSecrets = append $pullSecrets "enterprise-pull-secret" -}}
   {{- end -}}
 

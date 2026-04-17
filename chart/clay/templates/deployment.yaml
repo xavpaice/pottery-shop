@@ -22,7 +22,6 @@ spec:
         {{- include "clay.selectorLabels" . | nindent 8 }}
     spec:
       {{- include "replicated.imagePullSecrets" . | nindent 6 }}
-      {{- end }}
       {{- if .Values.postgres.managed }}
       initContainers:
         - name: wait-for-postgres
