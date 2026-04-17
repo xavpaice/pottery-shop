@@ -494,7 +494,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# G-20 / HOOK-01: cnpg-cluster.yaml carries post-install,post-upgrade hook at weight -10
+# G-20 / HOOK-01: cnpg-cluster.yaml carries post-install hook at weight -10 (no post-upgrade to preserve data)
 # ---------------------------------------------------------------------------
 OUTPUT_G20=$("${HELM}" template release-test "${CHART_DIR}" \
   "${REQUIRED[@]}" 2>&1)
@@ -503,10 +503,10 @@ CLUSTER_SECTION=$(echo "${OUTPUT_G20}" | awk \
   '/# Source: clay\/templates\/cnpg-cluster\.yaml/{p=1} \
    /^# Source:/{if(p && !/cnpg-cluster/){p=0}} p')
 
-if contains_match "${CLUSTER_SECTION}" '"helm.sh/hook": post-install,post-upgrade'; then
-    pass "G-20a HOOK-01: cnpg-cluster carries helm.sh/hook: post-install,post-upgrade"
+if contains_match "${CLUSTER_SECTION}" '"helm.sh/hook": post-install'; then
+    pass "G-20a HOOK-01: cnpg-cluster carries helm.sh/hook: post-install"
 else
-    fail "G-20a HOOK-01: cnpg-cluster carries helm.sh/hook: post-install,post-upgrade" \
+    fail "G-20a HOOK-01: cnpg-cluster carries helm.sh/hook: post-install" \
          "Expected hook annotation in cnpg-cluster section"
 fi
 
@@ -517,11 +517,12 @@ else
          "Expected weight -10 in cnpg-cluster section"
 fi
 
-if contains_match "${CLUSTER_SECTION}" '"helm.sh/hook-delete-policy": before-hook-creation'; then
-    pass "G-20c HOOK-01: cnpg-cluster carries hook-delete-policy before-hook-creation"
+# G-20c: Verify no hook-delete-policy (cluster must persist across upgrades)
+if ! contains_match "${CLUSTER_SECTION}" 'hook-delete-policy'; then
+    pass "G-20c HOOK-01: cnpg-cluster has no hook-delete-policy (data preserved on upgrade)"
 else
-    fail "G-20c HOOK-01: cnpg-cluster carries hook-delete-policy before-hook-creation" \
-         "Expected before-hook-creation delete-policy in cnpg-cluster section"
+    fail "G-20c HOOK-01: cnpg-cluster has no hook-delete-policy (data preserved on upgrade)" \
+         "hook-delete-policy found — cluster would be destroyed on upgrade"
 fi
 
 # ---------------------------------------------------------------------------

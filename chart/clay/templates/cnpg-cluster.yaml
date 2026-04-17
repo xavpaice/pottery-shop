@@ -6,9 +6,8 @@ metadata:
   labels:
     {{- include "clay.labels" . | nindent 4 }}
   annotations:
-    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook": post-install
     "helm.sh/hook-weight": "-10"
-    "helm.sh/hook-delete-policy": before-hook-creation
 spec:
   instances: {{ .Values.postgres.cluster.instances }}
   storage:
