@@ -115,14 +115,14 @@ postgres:
 waitForPostgres:
   image:
     registry: proxy.clay.nz
-    repository: proxy/xav-pottery-shop/docker.io/library/postgres
+    repository: proxy/xav-pottery-shop/index.docker.io/library/postgres
     tag: 16.3-alpine3.20
 
 # -- Image used by webhook-wait Jobs to poll operator readiness.
 webhookWait:
   image:
     registry: proxy.clay.nz
-    repository: proxy/xav-pottery-shop/docker.io/alpine/k8s
+    repository: proxy/xav-pottery-shop/index.docker.io/alpine/k8s
     tag: "1.35.3"
 
 # -- Subchart operator toggles
