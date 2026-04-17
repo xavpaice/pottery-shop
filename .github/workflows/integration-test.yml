@@ -75,7 +75,9 @@ jobs:
           # post-install hook that fires after helm returns)
           helm install clay chart/clay/ \
             --namespace clay \
-            --set image.tag=pr-${{ github.event.pull_request.number }} \
+            --set clay.image.registry=ghcr.io \
+            --set clay.image.repository=xavpaice/pottery-shop \
+            --set clay.image.tag=pr-${{ github.event.pull_request.number }} \
             --set imagePullSecrets[0].name=ghcr-pull-secret \
             --set secrets.ADMIN_PASS=ci-test-only \
             --set secrets.SESSION_SECRET=ci-test-session-secret-not-for-production \
