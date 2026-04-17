@@ -193,6 +193,132 @@ integration-test:
 		echo "--- Integration test passed ---"; \
 	'
 
+APP_SLUG := xav-pottery-shop
+CMX_CLUSTER := pottery-cmx-$(shell date +%s)
+CMX_VERSION := $(shell date -u '+%Y.%-m.%-d-%H%M%S')-dev-$(shell git rev-parse --short HEAD)
+
+## cmx-test: full Replicated flow -- build image, create release, install on CMX, verify, teardown
+cmx-test:
+	@for tool in replicated docker helm kubectl; do \
+		command -v $$tool >/dev/null 2>&1 || { echo "Error: $$tool not found"; exit 1; }; \
+	done
+	@test -n "$$REPLICATED_API_TOKEN" || { echo "Error: REPLICATED_API_TOKEN not set"; exit 1; }
+	@VERSION=$(CMX_VERSION) \
+	CLUSTER_NAME=$(CMX_CLUSTER) \
+	APP_SLUG=$(APP_SLUG) \
+	IMAGE_REPO=$(IMAGE_REPO) \
+	bash -ec ' \
+		CUSTOMER_ID=""; \
+		CLUSTER_ID=""; \
+		cleanup() { \
+			EXIT_CODE=$$?; \
+			if [ $$EXIT_CODE -ne 0 ] && [ -n "$$KUBECONFIG" ] && [ -f "$$KUBECONFIG" ]; then \
+				echo "--- Debug info ---"; \
+				kubectl get pods -n clay -o wide 2>/dev/null || true; \
+				kubectl get events -n clay --sort-by=.lastTimestamp 2>/dev/null || true; \
+				kubectl describe pods -n clay 2>/dev/null || true; \
+				kubectl logs -n clay -l app.kubernetes.io/name=clay --tail=50 2>/dev/null || true; \
+			fi; \
+			echo "--- Cleaning up ---"; \
+			if [ -n "$$CLUSTER_ID" ]; then replicated cluster rm "$$CLUSTER_ID" 2>/dev/null || true; fi; \
+			if [ -n "$$CUSTOMER_ID" ]; then replicated customer archive --app $$APP_SLUG "$$CUSTOMER_ID" 2>/dev/null || true; fi; \
+			rm -f /tmp/cmx-kubeconfig-$$CLUSTER_NAME; \
+		}; \
+		trap cleanup EXIT; \
+		\
+		echo "--- Building and pushing image $$IMAGE_REPO:$$VERSION ---"; \
+		docker buildx build --platform linux/amd64 \
+			-t $$IMAGE_REPO:$$VERSION --push .; \
+		\
+		echo "--- Packaging chart ---"; \
+		helm registry logout registry.replicated.com 2>/dev/null || true; \
+		helm dependency update chart/clay/; \
+		helm lint chart/clay/; \
+		rm -f replicated/clay-$$VERSION.tgz; \
+		helm package chart/clay/ -d replicated \
+			--version $$VERSION \
+			--app-version $$VERSION; \
+		\
+		echo "--- Creating Replicated release on Unstable ---"; \
+		sed "s/chartVersion: .*/chartVersion: $$VERSION/" replicated/clay-chart.yaml > /tmp/clay-chart-$$VERSION.yaml; \
+		cp /tmp/clay-chart-$$VERSION.yaml replicated/clay-chart.yaml; \
+		RELEASE_OUT=$$(replicated release create \
+			--app $$APP_SLUG \
+			--yaml-dir ./replicated \
+			--promote Unstable \
+			--version $$VERSION 2>&1); \
+		echo "$$RELEASE_OUT"; \
+		RELEASE_SEQ=$$(echo "$$RELEASE_OUT" | grep -oE "SEQUENCE: [0-9]+" | grep -oE "[0-9]+"); \
+		[ -n "$$RELEASE_SEQ" ] || { echo "Error: failed to get release sequence"; exit 1; }; \
+		echo "Release sequence: $$RELEASE_SEQ"; \
+		\
+		echo "--- Creating temp customer ---"; \
+		CUSTOMER_JSON=$$(replicated customer create \
+			--app $$APP_SLUG \
+			--name "cmx-test-$$VERSION" \
+			--channel Unstable \
+			--type dev \
+			--expires-in 1h \
+			--output json 2>&1); \
+		CUSTOMER_ID=$$(echo "$$CUSTOMER_JSON" | jq -r '.id'); \
+		LICENSE_ID=$$(echo "$$CUSTOMER_JSON" | jq -r '.installationId'); \
+		[ -n "$$CUSTOMER_ID" ] && [ "$$CUSTOMER_ID" != "null" ] || { echo "Error: failed to create customer"; echo "$$CUSTOMER_JSON"; exit 1; }; \
+		[ -n "$$LICENSE_ID" ] && [ "$$LICENSE_ID" != "null" ] || { echo "Error: failed to get license ID"; exit 1; }; \
+		echo "Customer: $$CUSTOMER_ID  License: $$LICENSE_ID"; \
+		\
+		echo "--- Creating CMX cluster $$CLUSTER_NAME ---"; \
+		replicated cluster create \
+			--name $$CLUSTER_NAME \
+			--distribution k3s \
+			--version 1.35.0 \
+			--wait 10m \
+			--ttl 30m; \
+		CLUSTER_ID=$$(replicated cluster ls --output json | \
+			jq -r ".[] | select(.name==\"$$CLUSTER_NAME\") | .id"); \
+		[ -n "$$CLUSTER_ID" ] || { echo "Error: failed to get cluster ID"; exit 1; }; \
+		echo "Cluster ID: $$CLUSTER_ID"; \
+		\
+		echo "--- Fetching kubeconfig ---"; \
+		replicated cluster kubeconfig $$CLUSTER_ID --stdout > /tmp/cmx-kubeconfig-$$CLUSTER_NAME; \
+		export KUBECONFIG=/tmp/cmx-kubeconfig-$$CLUSTER_NAME; \
+		\
+		echo "--- Installing from Replicated registry ---"; \
+		helm registry login registry.replicated.com \
+			--username "cmx-test@clay.nz" \
+			--password "$$LICENSE_ID"; \
+		helm install clay \
+			oci://registry.replicated.com/$$APP_SLUG/unstable/clay \
+			--version $$VERSION \
+			--namespace clay --create-namespace \
+			--set clay.image.tag=$$VERSION \
+			--set secrets.ADMIN_PASS=cmx-test-only \
+			--set secrets.SESSION_SECRET=cmx-test-session-secret-not-for-production \
+			--set ingress.enabled=false \
+			--set persistence.enabled=false \
+			--set cert-manager.startupapicheck.enabled=false \
+			--timeout 8m; \
+		\
+		echo "--- Waiting for Postgres ---"; \
+		for i in $$(seq 1 60); do \
+			PHASE=$$(kubectl get clusters.postgresql.cnpg.io -n clay clay-postgres \
+				-o jsonpath="{.status.phase}" 2>/dev/null || echo "pending"); \
+			if echo "$$PHASE" | grep -q "Cluster in healthy state"; then \
+				echo "Postgres ready"; break; \
+			fi; \
+			printf "."; sleep 5; \
+		done; echo ""; \
+		\
+		echo "--- Verifying deployment ---"; \
+		kubectl rollout status deployment/clay -n clay --timeout=120s; \
+		kubectl get pods -n clay; \
+		POD=$$(kubectl get pods -n clay -l app.kubernetes.io/name=clay \
+			-o jsonpath="{.items[0].metadata.name}"); \
+		kubectl exec -n clay "$$POD" -- wget -qO- http://localhost:8080/ | head -c 200; \
+		echo ""; \
+		echo "--- CMX test passed ---"; \
+	'
+	@git checkout replicated/clay-chart.yaml 2>/dev/null || true
+
 ## help: show this help
 help:
 	@grep -E '^## ' Makefile | sed 's/## //' | column -t -s ':'

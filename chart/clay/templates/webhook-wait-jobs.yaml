@@ -19,9 +19,10 @@ spec:
     spec:
       restartPolicy: Never
       serviceAccountName: {{ include "clay.fullname" . }}-webhook-wait
+      {{- include "replicated.imagePullSecrets" . | nindent 6 }}
       containers:
         - name: wait
-          image: "alpine/k8s:1.35.3"
+          image: "{{ .Values.webhookWait.image.registry }}/{{ .Values.webhookWait.image.repository }}:{{ .Values.webhookWait.image.tag }}"
           command:
             - sh
             - -c
@@ -51,9 +52,10 @@ spec:
     spec:
       restartPolicy: Never
       serviceAccountName: {{ include "clay.fullname" . }}-webhook-wait
+      {{- include "replicated.imagePullSecrets" . | nindent 6 }}
       containers:
         - name: wait
-          image: "alpine/k8s:1.35.3"
+          image: "{{ .Values.webhookWait.image.registry }}/{{ .Values.webhookWait.image.repository }}:{{ .Values.webhookWait.image.tag }}"
           command:
             - sh
             - -c

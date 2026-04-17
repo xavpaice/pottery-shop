@@ -9,6 +9,9 @@ metadata:
     "helm.sh/hook": post-install
     "helm.sh/hook-weight": "-10"
 spec:
+  imageName: {{ .Values.postgres.cluster.imageName }}
+  imagePullSecrets:
+    - name: enterprise-pull-secret
   instances: {{ .Values.postgres.cluster.instances }}
   storage:
     size: {{ .Values.postgres.cluster.storage.size }}

@@ -273,8 +273,29 @@
       "type": "object",
       "properties": {
         "image": {
-          "type": "string",
-          "description": "Pin to a specific patch version to avoid mutable-tag supply-chain risk"
+          "type": "object",
+          "description": "Pin to a specific patch version to avoid mutable-tag supply-chain risk",
+          "properties": {
+            "registry": { "type": "string" },
+            "repository": { "type": "string" },
+            "tag": { "type": "string" }
+          },
+          "required": ["registry", "repository", "tag"]
+        }
+      }
+    },
+    "webhookWait": {
+      "type": "object",
+      "properties": {
+        "image": {
+          "type": "object",
+          "description": "Image used by webhook-wait Jobs to poll operator readiness",
+          "properties": {
+            "registry": { "type": "string" },
+            "repository": { "type": "string" },
+            "tag": { "type": "string" }
+          },
+          "required": ["registry", "repository", "tag"]
         }
       }
     },

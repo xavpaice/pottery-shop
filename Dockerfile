@@ -1,14 +1,15 @@
-# Build stage — pure Go, no CGO
-FROM golang:1.26-alpine AS builder
+# Build stage — runs natively, cross-compiles via GOARCH
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS builder
+ARG TARGETARCH
 
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 go build -o clay-server ./cmd/server
+RUN CGO_ENABLED=0 GOARCH=${TARGETARCH} go build -o clay-server ./cmd/server
 
-# Runtime stage
+# Runtime stage — matches target platform
 FROM alpine:3.20
 
 RUN apk add --no-cache ca-certificates
