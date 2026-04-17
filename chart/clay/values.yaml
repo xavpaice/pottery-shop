@@ -5,9 +5,9 @@ replicaCount: 1
 
 clay:
   image:
-    # proxy.replicated.com or your custom domain
+    # proxy.replicated.com or your custom domain (e.g. proxy.clay.nz)
     registry: proxy.clay.nz
-    repository: proxy/clay/ghcr.io/xavpaice/pottery-shop
+    repository: proxy/xav-pottery-shop/ghcr.io/xavpaice/pottery-shop
     tag: latest
     pullPolicy: IfNotPresent
 
