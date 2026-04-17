@@ -25,7 +25,7 @@ spec:
       {{- if .Values.postgres.managed }}
       initContainers:
         - name: wait-for-postgres
-          image: {{ .Values.waitForPostgres.image | default "postgres:16.3-alpine3.20" }}
+          image: {{ .Values.waitForPostgres.image.registry }}/{{ .Values.waitForPostgres.image.repository }}:{{ .Values.waitForPostgres.image.tag }}
           command:
             - sh
             - -c

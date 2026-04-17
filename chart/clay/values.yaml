@@ -100,6 +100,7 @@ features:
 postgres:
   managed: true
   cluster:
+    imageName: proxy.clay.nz/proxy/xav-pottery-shop/ghcr.io/cloudnative-pg/postgresql:18.3-system-trixie
     instances: 1
     storage:
       size: 5Gi
@@ -112,7 +113,17 @@ postgres:
 # -- Image used by the wait-for-postgres init-container (managed mode only).
 # Pin to a specific patch version to avoid mutable-tag supply-chain risk.
 waitForPostgres:
-  image: postgres:16.3-alpine3.20
+  image:
+    registry: proxy.clay.nz
+    repository: proxy/xav-pottery-shop/docker.io/library/postgres
+    tag: 16.3-alpine3.20
+
+# -- Image used by webhook-wait Jobs to poll operator readiness.
+webhookWait:
+  image:
+    registry: proxy.clay.nz
+    repository: proxy/xav-pottery-shop/docker.io/alpine/k8s
+    tag: "1.35.3"
 
 # -- Subchart operator toggles
 #
@@ -124,6 +135,10 @@ waitForPostgres:
 #
 cloudnative-pg:
   enabled: true   # -- default: true (full umbrella install bundles the operator)
+  image:
+    repository: proxy.clay.nz/proxy/xav-pottery-shop/ghcr.io/cloudnative-pg/cloudnative-pg
+  imagePullSecrets:
+    - name: enterprise-pull-secret
 
 # -- cert-manager.enabled: install cert-manager as a bundled subchart.
 #   Set to false when cert-manager is already installed in the cluster (pre-installed mode).
@@ -132,4 +147,15 @@ cloudnative-pg:
 cert-manager:
   enabled: true   # -- default: true (full umbrella install bundles the operator)
   installCRDs: true  # -- install cert-manager CRDs (ClusterIssuer, Certificate, etc.)
+  imageRegistry: proxy.clay.nz/proxy/xav-pottery-shop/quay.io
+  global:
+    imagePullSecrets:
+      - name: enterprise-pull-secret
+
+# -- Replicated SDK
+replicated:
+  nameOverride: clay-sdk
+  image:
+    registry: proxy.clay.nz
+    repository: library/replicated-sdk-image
 
