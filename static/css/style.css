@@ -84,6 +84,7 @@ main.container {
     position: sticky;
     top: 0;
     z-index: 100;
+    min-height: 72px;
 }
 
 .header-inner {
@@ -106,8 +107,9 @@ main.container {
 }
 
 .logo-img {
-    height: 36px;
+    height: 48px;
     width: auto;
+    display: block;
 }
 
 .main-nav {
