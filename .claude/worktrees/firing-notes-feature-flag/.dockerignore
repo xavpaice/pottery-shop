@@ -1,8 +1,0 @@
-uploads/
-*.db
-.env
-.git
-.github
-coverage.*
-pottery-server
-clay-server

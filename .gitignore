@@ -6,3 +6,4 @@ pottery-server
 server
 .envrc
 .planning/
+.claude/worktrees/
