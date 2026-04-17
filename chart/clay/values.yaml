@@ -2,10 +2,14 @@
 
 replicaCount: 1
 
-image:
-  repository: ghcr.io/xavpaice/pottery-shop
-  tag: latest
-  pullPolicy: IfNotPresent
+
+clay:
+  image:
+    # proxy.replicated.com or your custom domain (e.g. proxy.clay.nz)
+    registry: proxy.clay.nz
+    repository: proxy/xav-pottery-shop/ghcr.io/xavpaice/pottery-shop
+    tag: latest
+    pullPolicy: IfNotPresent
 
 imagePullSecrets: []
 nameOverride: ""

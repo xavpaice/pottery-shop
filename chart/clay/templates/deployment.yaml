@@ -21,10 +21,7 @@ spec:
       labels:
         {{- include "clay.selectorLabels" . | nindent 8 }}
     spec:
-      {{- with .Values.imagePullSecrets }}
-      imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+      {{- include "replicated.imagePullSecrets" . | nindent 6 }}
       {{- if .Values.postgres.managed }}
       initContainers:
         - name: wait-for-postgres
@@ -41,8 +38,8 @@ spec:
       {{- end }}
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          image: {{ .Values.clay.image.registry }}/{{ .Values.clay.image.repository }}:{{ .Values.clay.image.tag }}
+          imagePullPolicy: {{ .Values.clay.image.pullPolicy }}
           env:
             - name: FEATURE_FIRING_LOGS_ENABLED
               value: {{ .Values.features.firingLogs.enabled | toString | quote }}

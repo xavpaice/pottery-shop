@@ -14,3 +14,6 @@ dependencies:
     repository: oci://quay.io/jetstack/charts
     version: "v1.20.2"
     condition: cert-manager.enabled
+  - name: replicated
+    repository: oci://registry.replicated.com/library
+    version: 1.19.1
