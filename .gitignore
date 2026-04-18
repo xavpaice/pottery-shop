@@ -7,3 +7,4 @@ server
 .envrc
 .planning/
 .claude/worktrees/
+replicated/*.tgz

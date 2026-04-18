@@ -78,6 +78,7 @@ jobs:
 
       - name: Package Helm chart
         run: |
+          rm -f replicated/*.tgz
           helm package chart/clay/ --debug -u -d replicated \
             --version ${{ steps.release-info.outputs.version }} \
             --app-version ${{ steps.release-info.outputs.version }}
