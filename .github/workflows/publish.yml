@@ -16,9 +16,29 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      version: ${{ steps.release-info.outputs.version }}
+      channel: ${{ steps.release-info.outputs.channel }}
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine channel and version
+        id: release-info
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            channel="Beta"
+            version="${GITHUB_REF_NAME}"
+          else
+            channel="Main"
+            git_hash=$(git rev-parse --short HEAD)
+            date_version=$(date -u '+%Y.%-m.%-d-%H%M%S')
+            version="${date_version}-main-${git_hash}"
+          fi
+          echo "channel=${channel}" >> "$GITHUB_OUTPUT"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -35,6 +55,7 @@ jobs:
           tags: |
             type=sha
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ steps.release-info.outputs.version }}
             type=semver,pattern=v{{version}}
             type=semver,pattern=v{{major}}.{{minor}}
 
@@ -58,21 +79,6 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@v4
 
-      - name: Determine channel and version
-        id: release-info
-        run: |
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            channel="Beta"
-            version="${GITHUB_REF_NAME}"
-          else
-            channel="Main"
-            git_hash=$(git rev-parse --short HEAD)
-            date_version=$(date -u '+%Y.%-m.%-d-%H%M%S')
-            version="${date_version}-main-${git_hash}"
-          fi
-          echo "channel=${channel}" >> "$GITHUB_OUTPUT"
-          echo "version=${version}" >> "$GITHUB_OUTPUT"
-
       - name: Update chart dependencies
         run: helm dependency update chart/clay/
 
@@ -80,18 +86,18 @@ jobs:
         run: |
           rm -f replicated/*.tgz
           helm package chart/clay/ --debug -u -d replicated \
-            --version ${{ steps.release-info.outputs.version }} \
-            --app-version ${{ steps.release-info.outputs.version }}
+            --version ${{ needs.build-and-push.outputs.version }} \
+            --app-version ${{ needs.build-and-push.outputs.version }}
 
       - name: Update HelmChart CR version
         run: |
-          sed -i "s/chartVersion: .*/chartVersion: ${{ steps.release-info.outputs.version }}/" replicated/clay-chart.yaml
+          sed -i "s/chartVersion: .*/chartVersion: ${{ needs.build-and-push.outputs.version }}/" replicated/clay-chart.yaml
 
-      - name: Create release and promote to ${{ steps.release-info.outputs.channel }}
+      - name: Create release and promote to ${{ needs.build-and-push.outputs.channel }}
         uses: replicatedhq/compatibility-actions/create-release@v1
         with:
           app-slug: ${{ env.APP_SLUG }}
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
           yaml-dir: ./replicated
-          promote-channel: ${{ steps.release-info.outputs.channel }}
-          version: ${{ steps.release-info.outputs.version }}
+          promote-channel: ${{ needs.build-and-push.outputs.channel }}
+          version: ${{ needs.build-and-push.outputs.version }}

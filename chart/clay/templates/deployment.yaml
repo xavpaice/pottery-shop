@@ -38,7 +38,7 @@ spec:
       {{- end }}
       containers:
         - name: {{ .Chart.Name }}
-          image: {{ .Values.clay.image.registry }}/{{ .Values.clay.image.repository }}:{{ .Values.clay.image.tag }}
+          image: {{ .Values.clay.image.registry }}/{{ .Values.clay.image.repository }}:{{ .Values.clay.image.tag | default .Chart.AppVersion }}
           imagePullPolicy: {{ .Values.clay.image.pullPolicy }}
           env:
             - name: FEATURE_FIRING_LOGS_ENABLED

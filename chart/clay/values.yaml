@@ -8,7 +8,7 @@ clay:
     # proxy.replicated.com or your custom domain (e.g. proxy.clay.nz)
     registry: proxy.clay.nz
     repository: proxy/xav-pottery-shop/ghcr.io/xavpaice/pottery-shop
-    tag: latest
+    tag: ""  # defaults to Chart.AppVersion when empty
     pullPolicy: IfNotPresent
 
 imagePullSecrets: []
