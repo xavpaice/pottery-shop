@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"time"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
@@ -17,6 +19,7 @@ import (
 	migrations "pottery-shop/internal/migrations"
 
 	"pottery-shop/internal/handlers"
+	"pottery-shop/internal/metrics"
 	"pottery-shop/internal/middleware"
 	"pottery-shop/internal/models"
 )
@@ -244,6 +247,11 @@ func main() {
 
 	// Wrap everything in session middleware
 	handler := sessionMgr.Middleware(mux)
+
+	// Custom metrics reporter -- posts counts to Replicated SDK every 4 hours
+	sdkService := envOr("REPLICATED_SDK_SERVICE", "clay-sdk")
+	metricsReporter := metrics.NewReporter(db, pool, sdkService, 4*time.Hour)
+	go metricsReporter.Run(context.Background())
 
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("Clay.nz starting on %s", addr)
