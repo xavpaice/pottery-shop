@@ -12,15 +12,17 @@ import (
 	"strings"
 	"time"
 
+	"pottery-shop/internal/metrics"
 	"pottery-shop/internal/models"
 )
 
 type AdminHandler struct {
-	Store      *models.ProductStore
-	Sellers    *models.SellerStore
-	Templates  *template.Template
-	UploadDir  string
-	ThumbDir   string
+	Store          *models.ProductStore
+	Sellers        *models.SellerStore
+	Templates      *template.Template
+	UploadDir      string
+	ThumbDir       string
+	UpdateChecker  *metrics.UpdateChecker
 }
 
 func (h *AdminHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
@@ -359,6 +361,12 @@ func (h *AdminHandler) generateThumbnail(src, dst string, maxWidth int) {
 }
 
 func (h *AdminHandler) render(w http.ResponseWriter, name string, data interface{}) {
+	if m, ok := data.(map[string]interface{}); ok && h.UpdateChecker != nil {
+		if updates := h.UpdateChecker.Available(); len(updates) > 0 {
+			m["UpdateAvailable"] = true
+			m["LatestVersion"] = updates[0].VersionLabel
+		}
+	}
 	err := h.Templates.ExecuteTemplate(w, name, data)
 	if err != nil {
 		log.Printf("Template error (%s): %v", name, err)

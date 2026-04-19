@@ -26,6 +26,14 @@
     color: var(--white);
 }
 
+.update-banner {
+    background: #2563eb;
+    color: #fff;
+    padding: 0.5rem 0;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
 .admin-main {
     padding-top: 2rem;
 }

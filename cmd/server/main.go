@@ -117,12 +117,16 @@ func main() {
 		Config:    config,
 	}
 
+	sdkService := envOr("REPLICATED_SDK_SERVICE", "clay-sdk")
+	updateChecker := metrics.NewUpdateChecker(sdkService, 1*time.Hour)
+
 	adminHandler := &handlers.AdminHandler{
-		Store:     store,
-		Sellers:   sellerStore,
-		Templates: adminTemplates,
-		UploadDir: uploadDir,
-		ThumbDir:  thumbDir,
+		Store:         store,
+		Sellers:       sellerStore,
+		Templates:     adminTemplates,
+		UploadDir:     uploadDir,
+		ThumbDir:      thumbDir,
+		UpdateChecker: updateChecker,
 	}
 
 	firingLogsEnabled := envOr("FEATURE_FIRING_LOGS_ENABLED", "true") != "false"
@@ -249,9 +253,9 @@ func main() {
 	handler := sessionMgr.Middleware(mux)
 
 	// Custom metrics reporter -- posts counts to Replicated SDK every 4 hours
-	sdkService := envOr("REPLICATED_SDK_SERVICE", "clay-sdk")
 	metricsReporter := metrics.NewReporter(db, pool, sdkService, 4*time.Hour)
 	go metricsReporter.Run(context.Background())
+	go updateChecker.Run(context.Background())
 
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("Clay.nz starting on %s", addr)
