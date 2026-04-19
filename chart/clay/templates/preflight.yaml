@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "clay.fullname" . }}-preflight
+  labels:
+    {{- include "clay.labels" . | nindent 4 }}
+    troubleshoot.sh/kind: preflight
+type: Opaque
+stringData:
+  preflight.yaml: |
+{{ include "clay.preflight" . | indent 4 }}
