@@ -123,7 +123,6 @@ func main() {
 		Config:    config,
 	}
 
-	sdkService := envOr("REPLICATED_SDK_SERVICE", "clay-sdk")
 	updateChecker := metrics.NewUpdateChecker(sdkService, 1*time.Hour)
 
 	adminHandler := &handlers.AdminHandler{
