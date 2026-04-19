@@ -23,5 +23,12 @@
             </nav>
         </div>
     </header>
+    {{if .UpdateAvailable}}
+    <div class="update-banner">
+        <div class="container">
+            A new version ({{.LatestVersion}}) is available. Contact your administrator to upgrade.
+        </div>
+    </div>
+    {{end}}
     <main class="container admin-main">
 {{end}}
