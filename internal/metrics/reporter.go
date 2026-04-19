@@ -84,6 +84,8 @@ func (r *Reporter) collect(ctx context.Context) {
 		return
 	}
 
+	log.Printf("metrics: sending custom metrics to %s: %s", r.endpoint, body)
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, r.endpoint, bytes.NewReader(body))
 	if err != nil {
 		log.Printf("metrics: create request: %v", err)
@@ -93,13 +95,15 @@ func (r *Reporter) collect(ctx context.Context) {
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		log.Printf("metrics: send: %v", err)
+		log.Printf("metrics: send failed: %v", err)
 		return
 	}
 	resp.Body.Close()
 
 	if resp.StatusCode >= 300 {
 		log.Printf("metrics: SDK returned %d", resp.StatusCode)
+	} else {
+		log.Printf("metrics: sent successfully (status %d)", resp.StatusCode)
 	}
 }
 

@@ -91,36 +91,45 @@ func ValidateLicense(sdkServiceName string) error {
 // Returns the field value if reachable, or the fallback if the SDK is unavailable.
 func CheckLicenseFieldBool(sdkServiceName, fieldName string, fallback bool) bool {
 	endpoint := fmt.Sprintf("http://%s:3000/api/v1/license/fields/%s", sdkServiceName, fieldName)
+	log.Printf("license: checking field %s at %s", fieldName, endpoint)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
+		log.Printf("license: create request: %v, using fallback %v", err, fallback)
 		return fallback
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
+		log.Printf("license: SDK unreachable for field %s: %v, using fallback %v", fieldName, err, fallback)
 		return fallback
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		log.Printf("license: SDK returned %d for field %s, using fallback %v", resp.StatusCode, fieldName, fallback)
 		return fallback
 	}
 
 	var field LicenseField
 	if err := json.NewDecoder(resp.Body).Decode(&field); err != nil {
+		log.Printf("license: decode field %s: %v, using fallback %v", fieldName, err, fallback)
 		return fallback
 	}
 
 	switch v := field.Value.(type) {
 	case bool:
+		log.Printf("license: field %s = %v", fieldName, v)
 		return v
 	case string:
-		return v == "true" || v == "1"
+		result := v == "true" || v == "1"
+		log.Printf("license: field %s = %q (resolved to %v)", fieldName, v, result)
+		return result
 	default:
+		log.Printf("license: field %s has unexpected type %T, using fallback %v", fieldName, field.Value, fallback)
 		return fallback
 	}
 }
