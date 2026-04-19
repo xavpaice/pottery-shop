@@ -61,11 +61,14 @@ jobs:
       - name: Determine channel and version
         id: release-info
         run: |
-          version=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             channel="Beta"
+            version="${GITHUB_REF_NAME}"
           else
             channel="Main"
+            git_hash=$(git rev-parse --short HEAD)
+            date_version=$(date -u '+%Y.%-m.%-d-%H%M%S')
+            version="${date_version}-main-${git_hash}"
           fi
           echo "channel=${channel}" >> "$GITHUB_OUTPUT"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
