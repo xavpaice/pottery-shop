@@ -38,6 +38,12 @@ func main() {
 	os.MkdirAll(uploadDir, 0755)
 	os.MkdirAll(thumbDir, 0755)
 
+	// Validate license before proceeding
+	sdkService := envOr("REPLICATED_SDK_SERVICE", "clay-sdk")
+	if err := metrics.ValidateLicense(sdkService); err != nil {
+		log.Fatalf("License validation failed: %v", err)
+	}
+
 	// Database
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
@@ -125,7 +131,10 @@ func main() {
 		ThumbDir:  thumbDir,
 	}
 
-	firingLogsEnabled := envOr("FEATURE_FIRING_LOGS_ENABLED", "true") != "false"
+	// Check license field for firing logs entitlement, fall back to env var
+	envFallback := envOr("FEATURE_FIRING_LOGS_ENABLED", "true") != "false"
+	firingLogsEnabled := metrics.CheckLicenseFieldBool(sdkService, "enableFiringLogs", envFallback)
+	log.Printf("Firing logs enabled: %v", firingLogsEnabled)
 
 	authHandler := handlers.NewAuthHandler(sellerStore, store, sessionMgr, publicTemplates, config, uploadDir, thumbDir)
 	authHandler.FiringLogsEnabled = firingLogsEnabled
@@ -249,7 +258,6 @@ func main() {
 	handler := sessionMgr.Middleware(mux)
 
 	// Custom metrics reporter -- posts counts to Replicated SDK every 4 hours
-	sdkService := envOr("REPLICATED_SDK_SERVICE", "clay-sdk")
 	metricsReporter := metrics.NewReporter(db, pool, sdkService, 4*time.Hour)
 	go metricsReporter.Run(context.Background())
 
