@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -60,22 +61,33 @@ func (u *UpdateChecker) check(ctx context.Context) {
 		return
 	}
 
+	log.Printf("updates: checking for updates at %s", u.endpoint)
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
+		log.Printf("updates: SDK unreachable: %v", err)
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		log.Printf("updates: SDK returned %d", resp.StatusCode)
 		return
 	}
 
 	var updates []AppUpdate
 	if err := json.NewDecoder(resp.Body).Decode(&updates); err != nil {
+		log.Printf("updates: decode response: %v", err)
 		return
 	}
 
 	u.mu.Lock()
 	u.updates = updates
 	u.mu.Unlock()
+
+	if len(updates) > 0 {
+		log.Printf("updates: %d update(s) available, latest: %s", len(updates), updates[0].VersionLabel)
+	} else {
+		log.Printf("updates: up to date")
+	}
 }
