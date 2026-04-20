@@ -110,10 +110,28 @@ jobs:
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
           kubernetes-distribution: k3s
           kubernetes-version: 1.35.0
+          instance-type: r1.medium
           cluster-name: pottery-ci-${{ github.run_id }}
           timeout-minutes: 10
           ttl: 30m
           export-kubeconfig: true
+
+      - name: Install preflight plugin
+        run: |
+          curl -L https://github.com/replicatedhq/troubleshoot/releases/latest/download/preflight_linux_amd64.tar.gz | \
+            tar xz -C /usr/local/bin preflight
+
+      - name: Run preflight checks
+        run: |
+          helm registry login registry.replicated.com \
+            --username ci-pr-${{ github.event.pull_request.number }}@clay.nz \
+            --password ${{ steps.create-customer.outputs.license-id }}
+          helm template clay \
+            oci://registry.replicated.com/${{ env.APP_SLUG }}/${{ needs.build-and-release.outputs.channel-slug }}/clay \
+            --version ${{ needs.build-and-release.outputs.version }} \
+            --set secrets.ADMIN_PASS=ci-test-only \
+            --set secrets.SESSION_SECRET=ci-test-session-secret-not-for-production \
+            | preflight --interactive=false -
 
       - name: Install chart from Replicated
         uses: replicatedhq/compatibility-actions/helm-install@v1
