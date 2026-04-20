@@ -16,6 +16,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
     outputs:
       version: ${{ steps.release-info.outputs.version }}
       channel: ${{ steps.release-info.outputs.channel }}
@@ -24,6 +25,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
 
       - name: Determine channel and version
         id: release-info
@@ -60,12 +64,17 @@ jobs:
             type=semver,pattern=v{{major}}.{{minor}}
 
       - name: Build and push
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Sign image with cosign
+        run: |
+          cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
 
   replicated-release:
     needs: build-and-push
