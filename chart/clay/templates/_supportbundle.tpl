@@ -102,7 +102,7 @@ spec:
     # --- App readiness HTTP check ---
     - textAnalyze:
         checkName: Clay application readiness
-        fileName: clay-readiness.json
+        fileName: clay-readiness/result.json
         regex: '"status":"ready"'
         outcomes:
           - fail:
@@ -115,6 +115,23 @@ spec:
           - pass:
               when: "true"
               message: Clay application is ready and healthy
+
+    # --- App health HTTP check ---
+    - textAnalyze:
+        checkName: Clay application health
+        fileName: clay-health/result.json
+        regex: '"status":"ok"'
+        outcomes:
+          - fail:
+              when: "false"
+              message: |
+                The Clay application is not healthy. The /healthz endpoint did not
+                return "ok", which means the application process is down or
+                unresponsive. Check clay/app-logs for crash details and pod events
+                for OOMKilled or other termination reasons.
+          - pass:
+              when: "true"
+              message: Clay application is healthy
 
     # --- Deployment status analyzers ---
     - deploymentStatus:
@@ -169,43 +186,10 @@ spec:
               message: cert-manager is healthy
     {{- end }}
 
-    # --- Job status analyzers ---
-    {{- if (index .Values "cloudnative-pg" "enabled") }}
-    - jobStatus:
-        checkName: CNPG webhook wait job
-        name: {{ include "clay.fullname" . }}-cnpg-webhook-wait
-        namespace: {{ .Release.Namespace }}
-        outcomes:
-          - fail:
-              when: "== Failed"
-              message: |
-                The CNPG webhook wait job failed. This means the CNPG operator
-                webhook did not become ready in time, which blocks PostgreSQL
-                cluster creation. Check clay/cnpg-operator-logs and pod events.
-          - pass:
-              message: CNPG webhook wait job completed successfully
-    {{- end }}
-
-    {{- if (index .Values "cert-manager" "enabled") }}
-    - jobStatus:
-        checkName: cert-manager webhook wait job
-        name: {{ include "clay.fullname" . }}-cert-manager-webhook-wait
-        namespace: {{ .Release.Namespace }}
-        outcomes:
-          - fail:
-              when: "== Failed"
-              message: |
-                The cert-manager webhook wait job failed. This means cert-manager
-                was not ready in time, which blocks TLS certificate creation.
-                Check clay/cert-manager-logs and pod events.
-          - pass:
-              message: cert-manager webhook wait job completed successfully
-    {{- end }}
-
     # --- Log analysis: database connection failures ---
     - textAnalyze:
         checkName: Database connection errors in app logs
-        fileName: clay/app-logs/*.log
+        fileName: clay/app-logs/*/clay.log
         regex: "DB ping failed|Failed to create connection pool|connection refused"
         outcomes:
           - fail:
@@ -223,7 +207,7 @@ spec:
     # --- Log analysis: migration failures ---
     - textAnalyze:
         checkName: Database migration errors
-        fileName: clay/app-logs/*.log
+        fileName: clay/app-logs/*/clay.log
         regex: "Failed to run migrations|goose.*error"
         outcomes:
           - fail:
@@ -256,12 +240,14 @@ spec:
     # --- Node readiness check ---
     - nodeResources:
         checkName: All nodes ready
+        filters:
+          cpuCapacity: "0"
         outcomes:
           - fail:
               when: "count(unready) > 0"
               message: |
-                One or more nodes are not in Ready state. Pods may be unschedulable
-                or evicted, causing application downtime. Run
+                One or more worker nodes are not in Ready state. Pods may be
+                unschedulable or evicted, causing application downtime. Run
                 'kubectl get nodes' and 'kubectl describe node <name>' to diagnose
                 the unhealthy node(s). Common causes: disk pressure, memory pressure,
                 network issues, or kubelet not running.
