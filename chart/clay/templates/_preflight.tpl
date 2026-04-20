@@ -8,26 +8,31 @@ spec:
     - clusterInfo: {}
     - clusterResources: {}
     {{- if and (not .Values.postgres.managed) .Values.postgres.external.dsn }}
-    - exec:
+    - runDaemonSet:
         name: external-db-check
-        collectorName: external-db-check
-        selector:
-          - app.kubernetes.io/name=clay
         namespace: {{ .Release.Namespace }}
-        command: ["sh"]
-        args: ["-c", "pg_isready -d $DATABASE_URL -t 5 2>&1 || echo 'CONNECTION_FAILED'"]
-        timeout: 15s
+        timeout: 30s
+        podSpec:
+          containers:
+            - name: check
+              image: {{ .Values.waitForPostgres.image.registry }}/{{ .Values.waitForPostgres.image.repository }}:{{ .Values.waitForPostgres.image.tag }}
+              command: ["sh", "-c", "pg_isready -h $(echo $DSN | sed 's|.*@||;s|/.*||;s|:.*||') -t 5 2>&1 || echo CONNECTION_FAILED"]
+              env:
+                - name: DSN
+                  value: {{ .Values.postgres.external.dsn | quote }}
+          restartPolicy: Never
     {{- end }}
     {{- if .Values.config.SMTP_HOST }}
-    - exec:
+    - runDaemonSet:
         name: smtp-check
-        collectorName: smtp-check
-        selector:
-          - app.kubernetes.io/name=clay
         namespace: {{ .Release.Namespace }}
-        command: ["sh"]
-        args: ["-c", "nc -z -w5 {{ .Values.config.SMTP_HOST }} {{ .Values.config.SMTP_PORT | default "587" }} 2>&1 && echo 'SMTP_OK' || echo 'SMTP_FAILED'"]
-        timeout: 15s
+        timeout: 30s
+        podSpec:
+          containers:
+            - name: check
+              image: busybox:1.36
+              command: ["sh", "-c", "nc -z -w5 {{ .Values.config.SMTP_HOST }} {{ .Values.config.SMTP_PORT | default "587" }} && echo SMTP_OK || echo SMTP_FAILED"]
+          restartPolicy: Never
     {{- end }}
 
   analyzers:
@@ -36,10 +41,10 @@ spec:
         Title: External Database Connectivity
         Requirement:
           - PostgreSQL must be reachable at the configured DSN
-        Verifies the external PostgreSQL database accepts connections.
+        Verifies the external PostgreSQL database accepts connections from cluster nodes.
       textAnalyze:
         checkName: External database connectivity
-        fileName: external-db-check/external-db-check.log
+        fileName: external-db-check/*.log
         regex: "accepting connections"
         outcomes:
           - fail:
@@ -62,7 +67,7 @@ spec:
         Verifies the mail server is reachable for order notification emails.
       textAnalyze:
         checkName: SMTP server connectivity
-        fileName: smtp-check/smtp-check.log
+        fileName: smtp-check/*.log
         regex: "SMTP_OK"
         outcomes:
           - fail:
@@ -76,7 +81,6 @@ spec:
               when: "true"
               message: SMTP server is reachable
     {{- end }}
-
     - docString: |
         Title: Minimum CPU Available
         Requirement:
