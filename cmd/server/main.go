@@ -253,6 +253,9 @@ func main() {
 	adminMux.HandleFunc("POST /admin/sellers/approve", adminHandler.ApproveSeller)
 	adminMux.HandleFunc("POST /admin/sellers/reject", adminHandler.RejectSeller)
 
+	supportBundleHandler := handlers.NewSupportBundleHandler(sdkService)
+	adminMux.HandleFunc("POST /admin/support-bundle", supportBundleHandler.Generate)
+
 	authAdmin := middleware.BasicAuth(adminUser, adminPass, adminMux)
 	mux.Handle("/admin/", authAdmin)
 	mux.Handle("/admin", authAdmin)

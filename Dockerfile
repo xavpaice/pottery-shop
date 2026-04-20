@@ -12,7 +12,11 @@ RUN CGO_ENABLED=0 GOARCH=${TARGETARCH} go build -o clay-server ./cmd/server
 # Runtime stage — matches target platform
 FROM alpine:3.20
 
-RUN apk add --no-cache ca-certificates
+ARG TARGETARCH
+RUN apk add --no-cache ca-certificates curl && \
+    curl -L "https://github.com/replicatedhq/troubleshoot/releases/latest/download/support-bundle_linux_${TARGETARCH}.tar.gz" | \
+      tar xz -C /usr/local/bin support-bundle && \
+    apk del curl
 
 WORKDIR /app
 

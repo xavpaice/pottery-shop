@@ -631,7 +631,7 @@ OUTPUT_G26=$("${HELM}" template release-test "${CHART_DIR}" \
   "${REQUIRED[@]}" \
   --values "${CHART_DIR}/ci/ci-external-db-values.yaml" 2>&1)
 
-if grep -q "^kind: Cluster" <<< "${OUTPUT_G26}"; then
+if grep -q "^kind: Cluster$" <<< "${OUTPUT_G26}"; then
     fail "G-26a CI-03: external-db mode renders no CNPG Cluster CR" \
          "Found 'kind: Cluster' in output -- should not appear when postgres.managed=false"
 else
