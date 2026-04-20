@@ -123,7 +123,7 @@ func main() {
 		Config:    config,
 	}
 
-	updateChecker := metrics.NewUpdateChecker(sdkService, 1*time.Hour)
+	updateChecker := metrics.NewUpdateChecker(sdkService, 5*time.Minute)
 
 	adminHandler := &handlers.AdminHandler{
 		Store:         store,
@@ -134,19 +134,15 @@ func main() {
 		UpdateChecker: updateChecker,
 	}
 
-	// Check license field for firing logs entitlement, fall back to env var
+	// Dynamic license check for firing logs -- polls every 5 minutes
 	envFallback := envOr("FEATURE_FIRING_LOGS_ENABLED", "true") != "false"
-	firingLogsEnabled := metrics.CheckLicenseFieldBool(sdkService, "enableFiringLogs", envFallback)
-	log.Printf("Firing logs enabled: %v", firingLogsEnabled)
+	firingLogsChecker := metrics.NewFeatureChecker(sdkService, "enableFiringLogs", envFallback, 5*time.Minute)
 
 	authHandler := handlers.NewAuthHandler(sellerStore, store, sessionMgr, publicTemplates, config, uploadDir, thumbDir)
-	authHandler.FiringLogsEnabled = firingLogsEnabled
+	authHandler.FiringLogs = firingLogsChecker
 
-	var firingLogHandler *handlers.FiringLogHandler
-	if firingLogsEnabled {
-		firingLogStore := models.NewFiringLogStore(pool)
-		firingLogHandler = handlers.NewFiringLogHandler(firingLogStore, sessionMgr, publicTemplates)
-	}
+	firingLogStore := models.NewFiringLogStore(pool)
+	firingLogHandler := handlers.NewFiringLogHandler(firingLogStore, sessionMgr, publicTemplates)
 
 	// Mux
 	mux := http.NewServeMux()
@@ -177,24 +173,35 @@ func main() {
 	mux.HandleFunc("/logout", authHandler.Logout)
 	mux.HandleFunc("/dashboard", authHandler.Dashboard)
 
-	// Seller dashboard firing log routes (guarded by RequireSeller at registration)
-	if firingLogsEnabled {
-		mux.HandleFunc("/dashboard/firings", authHandler.RequireSeller(firingLogHandler.List))
-		mux.HandleFunc("/dashboard/firings/new", authHandler.RequireSeller(firingLogHandler.New))
-		mux.HandleFunc("/dashboard/firings/create", authHandler.RequireSeller(firingLogHandler.Create))
-		mux.HandleFunc("/dashboard/firings/", func(w http.ResponseWriter, r *http.Request) {
-			path := r.URL.Path
-			if strings.HasSuffix(path, "/edit") {
-				authHandler.RequireSeller(firingLogHandler.Edit)(w, r)
-			} else if strings.HasSuffix(path, "/update") {
-				authHandler.RequireSeller(firingLogHandler.Update)(w, r)
-			} else if strings.HasSuffix(path, "/delete") {
-				authHandler.RequireSeller(firingLogHandler.Delete)(w, r)
-			} else {
-				authHandler.RequireSeller(firingLogHandler.View)(w, r)
+	// Seller dashboard firing log routes -- gated by license entitlement
+	requireFiringLogs := func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			if !firingLogsChecker.Enabled() {
+				http.NotFound(w, r)
+				return
 			}
-		})
+			next(w, r)
+		}
 	}
+	mux.HandleFunc("/dashboard/firings", requireFiringLogs(authHandler.RequireSeller(firingLogHandler.List)))
+	mux.HandleFunc("/dashboard/firings/new", requireFiringLogs(authHandler.RequireSeller(firingLogHandler.New)))
+	mux.HandleFunc("/dashboard/firings/create", requireFiringLogs(authHandler.RequireSeller(firingLogHandler.Create)))
+	mux.HandleFunc("/dashboard/firings/", func(w http.ResponseWriter, r *http.Request) {
+		if !firingLogsChecker.Enabled() {
+			http.NotFound(w, r)
+			return
+		}
+		path := r.URL.Path
+		if strings.HasSuffix(path, "/edit") {
+			authHandler.RequireSeller(firingLogHandler.Edit)(w, r)
+		} else if strings.HasSuffix(path, "/update") {
+			authHandler.RequireSeller(firingLogHandler.Update)(w, r)
+		} else if strings.HasSuffix(path, "/delete") {
+			authHandler.RequireSeller(firingLogHandler.Delete)(w, r)
+		} else {
+			authHandler.RequireSeller(firingLogHandler.View)(w, r)
+		}
+	})
 
 	// Seller dashboard product routes (guarded by requireSeller inside each handler)
 	mux.HandleFunc("/dashboard/products", authHandler.DashboardProducts)
@@ -212,9 +219,7 @@ func main() {
 	})
 
 	// JSON API routes (auth enforced inside handler — returns JSON errors, not HTML redirects)
-	if firingLogsEnabled {
-		mux.HandleFunc("GET /api/firings/{id}/readings", firingLogHandler.ReadingsAPI)
-	}
+	mux.HandleFunc("GET /api/firings/{id}/readings", requireFiringLogs(firingLogHandler.ReadingsAPI))
 
 	// Public routes
 	mux.HandleFunc("/", publicHandler.Home)
@@ -267,6 +272,7 @@ func main() {
 	metricsReporter := metrics.NewReporter(db, pool, sdkService, 4*time.Hour)
 	go metricsReporter.Run(context.Background())
 	go updateChecker.Run(context.Background())
+	go firingLogsChecker.Run(context.Background())
 
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("Clay.nz starting on %s", addr)
