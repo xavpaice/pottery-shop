@@ -15,6 +15,7 @@ import (
 
 	"github.com/disintegration/imaging"
 
+	"pottery-shop/internal/metrics"
 	"pottery-shop/internal/middleware"
 	"pottery-shop/internal/models"
 )
@@ -28,7 +29,7 @@ type AuthHandler struct {
 	config           *Config
 	uploadDir        string
 	thumbDir         string
-	FiringLogsEnabled bool
+	FiringLogs       *metrics.FeatureChecker
 }
 
 // NewAuthHandler creates a new AuthHandler.
@@ -174,7 +175,7 @@ func (h *AuthHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 		"PageTitle":         "Seller Dashboard",
 		"Seller":            seller,
 		"Flash":             session.Flash,
-		"FiringLogsEnabled": h.FiringLogsEnabled,
+		"FiringLogsEnabled": h.FiringLogs != nil && h.FiringLogs.Enabled(),
 	}
 	session.Flash = ""
 	h.render(w, "dashboard.html", data)
