@@ -154,6 +154,27 @@ spec:
               message: Kubernetes version is supported
 
     - docString: |
+        Title: Default Storage Class
+        Requirement:
+          - A default StorageClass must be available
+        Ensures persistent volumes can be provisioned for PostgreSQL and uploads.
+        Links:
+          - https://kubernetes.io/docs/concepts/storage/storage-classes/
+      storageClass:
+        checkName: Default storage class
+        storageClassName: ""
+        outcomes:
+          - fail:
+              message: |
+                No default storage class found. Clay requires a default storage
+                class for PostgreSQL data persistence and uploaded product images.
+                Create a default storage class or set persistence.storageClass and
+                postgres.cluster.storage.storageClass explicitly in your values.
+                See https://kubernetes.io/docs/concepts/storage/storage-classes/
+          - pass:
+              message: Default storage class is available
+
+    - docString: |
         Title: Kubernetes Distribution
         Requirement:
           - Must not be docker-desktop or microk8s
