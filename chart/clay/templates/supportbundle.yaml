@@ -6,6 +6,5 @@ metadata:
     {{- include "clay.labels" . | nindent 4 }}
     troubleshoot.sh/kind: support-bundle
 type: Opaque
-stringData:
-  support-bundle.yaml: |
-{{ include "clay.supportbundle" . | indent 4 }}
+data:
+  support-bundle-spec: {{ include "clay.supportbundle" . | b64enc }}

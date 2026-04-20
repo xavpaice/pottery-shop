@@ -21,6 +21,7 @@ spec:
       labels:
         {{- include "clay.selectorLabels" . | nindent 8 }}
     spec:
+      serviceAccountName: {{ include "clay.fullname" . }}
       {{- include "replicated.imagePullSecrets" . | nindent 6 }}
       {{- if .Values.postgres.managed }}
       initContainers:

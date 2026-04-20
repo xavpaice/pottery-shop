@@ -26,6 +26,30 @@
     color: var(--white);
 }
 
+.nav-form {
+    display: inline;
+}
+
+.btn-support-bundle {
+    background: var(--sand);
+    color: var(--earth);
+    border: none;
+    padding: 0.3rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.btn-support-bundle:hover {
+    background: var(--white);
+}
+
+.btn-support-bundle:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
 .update-banner {
     background: #2563eb;
     color: #fff;
