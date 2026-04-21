@@ -140,6 +140,7 @@ jobs:
             --version ${{ needs.build-and-release.outputs.version }} \
             --set secrets.ADMIN_PASS=ci-test-only \
             --set secrets.SESSION_SECRET=ci-test-session-secret-not-for-production \
+            --set config.SMTP_HOST=smtp.example.com \
             | preflight --interactive=false -
 
       - name: Install chart from Replicated
