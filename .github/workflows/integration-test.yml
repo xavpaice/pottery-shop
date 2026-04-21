@@ -130,6 +130,13 @@ jobs:
           curl -L https://github.com/replicatedhq/troubleshoot/releases/latest/download/preflight_linux_amd64.tar.gz | \
             tar xz -C /usr/local/bin preflight
 
+      - name: Deploy SMTP stub for preflight test
+        id: smtp-stub
+        run: |
+          kubectl run smtp-stub --image=axllent/mailpit --restart=Never -- --smtp=0.0.0.0:587
+          kubectl wait pod/smtp-stub --for=condition=Ready --timeout=60s
+          echo "ip=$(kubectl get pod smtp-stub -o jsonpath='{.status.podIP}')" >> "$GITHUB_OUTPUT"
+
       - name: Run preflight checks
         run: |
           helm registry login registry.replicated.com \
@@ -140,7 +147,7 @@ jobs:
             --version ${{ needs.build-and-release.outputs.version }} \
             --set secrets.ADMIN_PASS=ci-test-only \
             --set secrets.SESSION_SECRET=ci-test-session-secret-not-for-production \
-            --set config.SMTP_HOST=smtp.example.com \
+            --set config.SMTP_HOST=${{ steps.smtp-stub.outputs.ip }} \
             | preflight --interactive=false -
 
       - name: Install chart from Replicated
