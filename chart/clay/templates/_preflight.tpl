@@ -8,19 +8,9 @@ spec:
     - clusterInfo: {}
     - clusterResources: {}
     {{- if and (not .Values.postgres.managed) .Values.postgres.external.dsn }}
-    - runDaemonSet:
-        name: external-db-check
-        namespace: {{ .Release.Namespace }}
-        timeout: 30s
-        podSpec:
-          containers:
-            - name: check
-              image: {{ .Values.waitForPostgres.image.registry }}/{{ .Values.waitForPostgres.image.repository }}:{{ .Values.waitForPostgres.image.tag }}
-              command: ["sh", "-c", "pg_isready -h $(echo $DSN | sed 's|.*@||;s|/.*||;s|:.*||') -t 5 2>&1 || echo CONNECTION_FAILED"]
-              env:
-                - name: DSN
-                  value: {{ .Values.postgres.external.dsn | quote }}
-          restartPolicy: Always
+    - postgres:
+        collectorName: external-db
+        uri: {{ .Values.postgres.external.dsn | quote }}
     {{- end }}
     {{- if .Values.config.SMTP_HOST }}
     - runDaemonSet:
@@ -37,25 +27,19 @@ spec:
 
   analyzers:
     {{- if and (not .Values.postgres.managed) .Values.postgres.external.dsn }}
-    - docString: |
-        Title: External Database Connectivity
-        Requirement:
-          - PostgreSQL must be reachable at the configured DSN
-        Verifies the external PostgreSQL database accepts connections from cluster nodes.
-      textAnalyze:
+    - postgres:
         checkName: External database connectivity
-        fileName: external-db-check/*.log
-        regex: "accepting connections"
+        collectorName: external-db
         outcomes:
           - fail:
-              when: "false"
+              when: "connected == false"
               message: |
                 Cannot connect to the external PostgreSQL database.
                 Verify that postgres.external.dsn is correct and the database
                 is reachable from this cluster. Check network policies, firewall
                 rules, and that the database server is running.
           - pass:
-              when: "true"
+              when: "connected == true"
               message: External PostgreSQL database is reachable
     {{- end }}
 
