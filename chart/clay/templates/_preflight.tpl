@@ -20,7 +20,7 @@ spec:
               env:
                 - name: DSN
                   value: {{ .Values.postgres.external.dsn | quote }}
-          restartPolicy: Never
+          restartPolicy: Always
     {{- end }}
     {{- if .Values.config.SMTP_HOST }}
     - runDaemonSet:
@@ -32,7 +32,7 @@ spec:
             - name: check
               image: busybox:1.36
               command: ["sh", "-c", "nc -z -w5 {{ .Values.config.SMTP_HOST }} {{ .Values.config.SMTP_PORT | default "587" }} && echo SMTP_OK || echo SMTP_FAILED"]
-          restartPolicy: Never
+          restartPolicy: Always
     {{- end }}
 
   analyzers:
