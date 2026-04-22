@@ -290,7 +290,7 @@ jobs:
             --version 24.04 \
             --name pottery-ec-ci-${{ github.run_id }} \
             --ttl 30m \
-            --ssh-public-key "$(cat /tmp/ci_key.pub)" \
+            --ssh-public-key /tmp/ci_key.pub \
             --output json)
           echo "vm-id=$(echo "$VM_JSON" | jq -r '.id')" >> "$GITHUB_OUTPUT"
 
@@ -366,13 +366,11 @@ jobs:
         if: always()
         env:
           REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
-        run: replicated vm rm ${{ steps.create-vm.outputs.vm-id }} --force
+        run: replicated vm rm ${{ steps.create-vm.outputs.vm-id }}
 
       - name: Archive CI customer
         if: always()
         env:
           REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
-        run: |
-          replicated customer archive \
-            --app ${{ env.APP_SLUG }} \
-            --customer ${{ steps.create-customer.outputs.customer-id }}
+          REPLICATED_APP: ${{ env.APP_SLUG }}
+        run: replicated customer archive ${{ steps.create-customer.outputs.customer-id }}
