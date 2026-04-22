@@ -1,4 +1,4 @@
-{{- if .Values.postgres.managed }}
+{{- if include "clay.isTrue" .Values.postgres.managed }}
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:

@@ -1,4 +1,4 @@
-{{- if .Values.ingress.enabled }}
+{{- if include "clay.isTrue" .Values.ingress.enabled }}
 {{- include "clay.validateIngress" . }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress

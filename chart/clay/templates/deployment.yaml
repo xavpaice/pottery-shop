@@ -23,7 +23,7 @@ spec:
     spec:
       serviceAccountName: {{ include "clay.fullname" . }}
       {{- include "replicated.imagePullSecrets" . | nindent 6 }}
-      {{- if .Values.postgres.managed }}
+      {{- if include "clay.isTrue" .Values.postgres.managed }}
       initContainers:
         - name: wait-for-postgres
           image: {{ .Values.waitForPostgres.image.registry }}/{{ .Values.waitForPostgres.image.repository }}:{{ .Values.waitForPostgres.image.tag }}
@@ -44,7 +44,7 @@ spec:
           env:
             - name: FEATURE_FIRING_LOGS_ENABLED
               value: {{ .Values.features.firingLogs.enabled | toString | quote }}
-            {{- if .Values.postgres.managed }}
+            {{- if include "clay.isTrue" .Values.postgres.managed }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -82,7 +82,7 @@ spec:
           {{- end }}
       volumes:
         - name: data
-          {{- if .Values.persistence.enabled }}
+          {{- if include "clay.isTrue" .Values.persistence.enabled }}
           persistentVolumeClaim:
             claimName: {{ .Values.persistence.existingClaim | default (printf "%s-data" (include "clay.fullname" .)) }}
           {{- else }}

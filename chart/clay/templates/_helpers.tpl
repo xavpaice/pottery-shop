@@ -1,4 +1,17 @@
 {{/*
+isTrue -- handles both native YAML bool and the string "true"/"false" that
+KOTS produces when rendering ConfigOptionEquals into Helm values.
+Usage: {{- if include "clay.isTrue" .Values.some.boolField }}
+*/}}
+{{- define "clay.isTrue" -}}
+{{- if kindIs "bool" . -}}
+  {{- if . -}}true{{- end -}}
+{{- else -}}
+  {{- if eq (. | toString) "true" -}}true{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Expand the name of the chart.
 */}}
 {{- define "clay.name" -}}

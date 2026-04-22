@@ -19,7 +19,7 @@ spec:
         name: clay/app-logs
 
     # PostgreSQL logs (CNPG managed)
-    {{- if .Values.postgres.managed }}
+    {{- if include "clay.isTrue" .Values.postgres.managed }}
     - logs:
         selector:
           - cnpg.io/cluster={{ include "clay.fullname" . }}-postgres
@@ -74,7 +74,7 @@ spec:
           url: http://{{ include "clay.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}/healthz
         timeout: 10s
 
-    {{- if .Values.postgres.managed }}
+    {{- if include "clay.isTrue" .Values.postgres.managed }}
     # PostgreSQL connectivity check from app pod
     - exec:
         name: postgres-connectivity
