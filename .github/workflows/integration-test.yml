@@ -278,7 +278,7 @@ jobs:
           echo "license-id=$(echo "$CUSTOMER_JSON" | jq -r '.installationId')" >> "$GITHUB_OUTPUT"
 
       - name: Generate SSH key
-        run: ssh-keygen -t ed25519 -f /tmp/ci_key -N ""
+        run: ssh-keygen -t ed25519 -C "ci@clay.nz" -f /tmp/ci_key -N ""
 
       - name: Create CMX VM
         id: create-vm
@@ -304,6 +304,7 @@ jobs:
             STATUS=$(echo "$VM_DATA" | jq -r '.status')
             if [ "$STATUS" = "running" ]; then
               echo "SSH_HOST=$(echo "$VM_DATA" | jq -r '.direct_ssh_endpoint')" >> "$GITHUB_ENV"
+              echo "SSH_PORT=$(echo "$VM_DATA" | jq -r '.direct_ssh_port')" >> "$GITHUB_ENV"
               break
             fi
             echo "VM status: $STATUS"
@@ -319,12 +320,12 @@ jobs:
 
       - name: Copy installer to VM
         run: |
-          scp -i /tmp/ci_key -o StrictHostKeyChecking=no \
-            clay license.yaml ubuntu@$SSH_HOST:/tmp/
+          scp -i /tmp/ci_key -o StrictHostKeyChecking=no -P $SSH_PORT \
+            clay license.yaml ci@$SSH_HOST:/tmp/
 
       - name: Create config values
         run: |
-          ssh -i /tmp/ci_key -o StrictHostKeyChecking=no ubuntu@$SSH_HOST \
+          ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
             "cat > /tmp/config-values.yaml" <<'EOF'
           apiVersion: kots.io/v1beta1
           kind: ConfigValues
@@ -342,7 +343,7 @@ jobs:
 
       - name: Install Embedded Cluster
         run: |
-          ssh -i /tmp/ci_key -o StrictHostKeyChecking=no ubuntu@$SSH_HOST \
+          ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
             "sudo /tmp/clay install \
               --license /tmp/license.yaml \
               --config-values /tmp/config-values.yaml \
@@ -352,13 +353,13 @@ jobs:
 
       - name: Verify installation
         run: |
-          ssh -i /tmp/ci_key -o StrictHostKeyChecking=no ubuntu@$SSH_HOST \
+          ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
             "sudo kubectl get nodes && sudo kubectl get pods -A"
 
       - name: Collect debug info on failure
         if: failure()
         run: |
-          ssh -i /tmp/ci_key -o StrictHostKeyChecking=no ubuntu@$SSH_HOST \
+          ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
             "sudo kubectl get pods -A || true
              sudo journalctl -u clay --no-pager --lines=100 || true" || true
 
