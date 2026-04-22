@@ -7,72 +7,16 @@ spec:
     name: clay
     chartVersion: 0.1.0
 
-  values:
-    clay:
-      image:
-        registry: proxy.replicated.com
-        repository: xav-pottery-shop/ghcr.io/xavpaice/pottery-shop
-
-    postgres:
-      cluster:
-        imageName: proxy.replicated.com/xav-pottery-shop/ghcr.io/cloudnative-pg/postgresql:18.3-system-trixie
-
-    waitForPostgres:
-      image:
-        registry: proxy.replicated.com
-        repository: xav-pottery-shop/index.docker.io/library/postgres
-        tag: 16.3-alpine3.20
-
-    webhookWait:
-      image:
-        registry: proxy.replicated.com
-        repository: xav-pottery-shop/index.docker.io/alpine/k8s
-        tag: "1.35.3"
-
-    cloudnative-pg:
-      image:
-        repository: proxy.replicated.com/xav-pottery-shop/ghcr.io/cloudnative-pg/cloudnative-pg
-
-    cert-manager:
-      imageRegistry: proxy.replicated.com/xav-pottery-shop/quay.io
-
-    replicated:
-      image:
-        registry: proxy.replicated.com
-        repository: library/replicated-sdk-image
-
-  # builder values are static (no template functions) and are used by KOTS
-  # to discover all images when building air-gap bundles.
+  # builder values are static and used only by the Replicated airgap builder.
+  # They ensure helm template renders every conditional image path so the
+  # builder can scan and bundle all images that could possibly be used.
   builder:
-    clay:
-      image:
-        registry: proxy.replicated.com
-        repository: xav-pottery-shop/ghcr.io/xavpaice/pottery-shop
-
     postgres:
-      cluster:
-        imageName: proxy.replicated.com/xav-pottery-shop/ghcr.io/cloudnative-pg/postgresql:18.3-system-trixie
-
-    waitForPostgres:
-      image:
-        registry: proxy.replicated.com
-        repository: xav-pottery-shop/index.docker.io/library/postgres
-        tag: 16.3-alpine3.20
-
-    webhookWait:
-      image:
-        registry: proxy.replicated.com
-        repository: xav-pottery-shop/index.docker.io/alpine/k8s
-        tag: "1.35.3"
-
+      managed: true
     cloudnative-pg:
-      image:
-        repository: proxy.replicated.com/xav-pottery-shop/ghcr.io/cloudnative-pg/cloudnative-pg
-
+      enabled: true
     cert-manager:
-      imageRegistry: proxy.replicated.com/xav-pottery-shop/quay.io
-
-    replicated:
-      image:
-        registry: proxy.replicated.com
-        repository: library/replicated-sdk-image
+      enabled: true
+    features:
+      firingLogs:
+        enabled: true
