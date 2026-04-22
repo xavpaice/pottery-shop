@@ -20,3 +20,8 @@ spec:
     features:
       firingLogs:
         enabled: true
+    secrets:
+      ADMIN_PASS: dummy
+      SESSION_SECRET: dummy
+    config:
+      ORDER_EMAIL: builder@example.com
