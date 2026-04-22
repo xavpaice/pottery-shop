@@ -10,7 +10,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOARCH=${TARGETARCH} go build -o clay-server ./cmd/server
 
 # Runtime stage — matches target platform
-FROM alpine:3.20
+FROM alpine:3.21
 
 ARG TARGETARCH
 RUN apk add --no-cache ca-certificates curl && \
