@@ -130,6 +130,16 @@ jobs:
           curl -L https://github.com/replicatedhq/troubleshoot/releases/latest/download/preflight_linux_amd64.tar.gz | \
             tar xz -C /usr/local/bin preflight
 
+      - name: Deploy postgres for preflight test
+        id: ci-postgres
+        run: |
+          kubectl run ci-postgres --image=postgres:15 --restart=Never \
+            --env=POSTGRES_PASSWORD=ci-test --env=POSTGRES_DB=ci
+          kubectl wait pod/ci-postgres --for=condition=Ready --timeout=60s
+          kubectl port-forward pod/ci-postgres 5432:5432 &
+          sleep 2
+          echo "dsn=postgresql://postgres:ci-test@localhost/ci" >> "$GITHUB_OUTPUT"
+
       - name: Run preflight checks
         run: |
           helm registry login registry.replicated.com \
@@ -141,6 +151,8 @@ jobs:
             --set secrets.ADMIN_PASS=ci-test-only \
             --set secrets.SESSION_SECRET=ci-test-session-secret-not-for-production \
             --set config.SMTP_HOST=smtp.mailgun.org \
+            --set postgres.managed=false \
+            --set postgres.external.dsn=${{ steps.ci-postgres.outputs.dsn }} \
             | preflight --interactive=false -
 
       - name: Install chart from Replicated
