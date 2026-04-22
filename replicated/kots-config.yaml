@@ -122,11 +122,3 @@ spec:
           type: text
           when: 'repl{{ and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionEquals "tls_mode" "custom") }}'
 
-    - name: features
-      title: Features
-      items:
-        - name: firing_logs_enabled
-          title: Firing Logs
-          help_text: Enable kiln session tracking and temperature readings.
-          type: bool
-          default: "1"

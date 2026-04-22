@@ -36,7 +36,7 @@ spec:
         secretName: 'repl{{ ConfigOption "tls_secret_name" }}'
     features:
       firingLogs:
-        enabled: 'repl{{ ConfigOptionEquals "firing_logs_enabled" "1" }}'
+        enabled: 'repl{{ LicenseFieldValue "firing_logs_enabled" | ParseBool }}'
 
   # builder values are static and used only by the Replicated airgap builder.
   # They ensure helm template renders every conditional image path so the
