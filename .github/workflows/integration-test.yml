@@ -271,7 +271,8 @@ jobs:
             --email ci-ec-pr-${{ github.event.pull_request.number }}@clay.nz \
             --type dev \
             --expires-in 24h \
-            --entitlement embedded-cluster-enabled=true \
+            --embedded-cluster-download \
+            --airgap \
             --output json)
           echo "customer-id=$(echo "$CUSTOMER_JSON" | jq -r '.id')" >> "$GITHUB_OUTPUT"
           echo "license-id=$(echo "$CUSTOMER_JSON" | jq -r '.installationId')" >> "$GITHUB_OUTPUT"
