@@ -245,3 +245,129 @@ jobs:
         with:
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
           customer-id: ${{ steps.create-customer.outputs.customer-id }}
+
+  ec-integration-test:
+    needs: build-and-release
+    if: github.event.pull_request.head.repo.fork == false
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Replicated CLI
+        run: |
+          curl -fsSL https://github.com/replicatedhq/replicated/releases/latest/download/replicated_linux_amd64.tar.gz | \
+            tar xz -C /usr/local/bin replicated
+
+      - name: Create CI customer
+        id: create-customer
+        uses: replicatedhq/compatibility-actions/create-customer@v1
+        with:
+          app-slug: ${{ env.APP_SLUG }}
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          customer-name: ci-ec-pr-${{ github.event.pull_request.number }}-${{ github.run_id }}
+          channel-slug: ${{ needs.build-and-release.outputs.channel-slug }}
+          customer-email: ci-ec-pr-${{ github.event.pull_request.number }}@clay.nz
+          license-type: dev
+          expires-in: 1
+          entitlements: |
+            - name: embedded-cluster-enabled
+              value: "true"
+
+      - name: Generate SSH key
+        run: ssh-keygen -t ed25519 -f /tmp/ci_key -N ""
+
+      - name: Create CMX VM
+        id: create-vm
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+        run: |
+          VM_JSON=$(replicated vm create \
+            --distribution ubuntu \
+            --version 24.04 \
+            --name pottery-ec-ci-${{ github.run_id }} \
+            --ttl 30m \
+            --ssh-public-key "$(cat /tmp/ci_key.pub)" \
+            --output json)
+          echo "vm-id=$(echo "$VM_JSON" | jq -r '.id')" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for VM to be running
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+        run: |
+          for i in $(seq 1 30); do
+            STATUS=$(replicated vm ls --output json | \
+              jq -r '.[] | select(.id == "${{ steps.create-vm.outputs.vm-id }}") | .status')
+            [ "$STATUS" = "running" ] && break
+            echo "VM status: $STATUS"
+            sleep 10
+          done
+
+      - name: Download EC installer
+        run: |
+          curl -fL https://replicated.app/embedded/${{ env.APP_SLUG }}/${{ needs.build-and-release.outputs.channel-slug }} \
+            -H "Authorization: ${{ steps.create-customer.outputs.license-id }}" \
+            -o clay.tgz
+          tar -xzf clay.tgz
+
+      - name: Copy installer to VM
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+        run: |
+          SSH_HOST=$(replicated vm ssh-endpoint ${{ steps.create-vm.outputs.vm-id }})
+          echo "SSH_HOST=$SSH_HOST" >> "$GITHUB_ENV"
+          scp -i /tmp/ci_key -o StrictHostKeyChecking=no \
+            clay license.yaml ubuntu@$SSH_HOST:/tmp/
+
+      - name: Create config values
+        run: |
+          ssh -i /tmp/ci_key -o StrictHostKeyChecking=no ubuntu@$SSH_HOST \
+            "cat > /tmp/config-values.yaml" <<'EOF'
+          apiVersion: kots.io/v1beta1
+          kind: ConfigValues
+          metadata:
+            name: clay
+          spec:
+            values:
+              ADMIN_PASS:
+                value: ci-test-only
+              SESSION_SECRET:
+                value: ci-test-session-secret
+              ORDER_EMAIL:
+                value: ci@clay.nz
+          EOF
+
+      - name: Install Embedded Cluster
+        run: |
+          ssh -i /tmp/ci_key -o StrictHostKeyChecking=no ubuntu@$SSH_HOST \
+            "sudo /tmp/clay install \
+              --license /tmp/license.yaml \
+              --config-values /tmp/config-values.yaml \
+              --headless \
+              --installer-password ci-test-password \
+              --yes"
+
+      - name: Verify installation
+        run: |
+          ssh -i /tmp/ci_key -o StrictHostKeyChecking=no ubuntu@$SSH_HOST \
+            "sudo kubectl get nodes && sudo kubectl get pods -A"
+
+      - name: Collect debug info on failure
+        if: failure()
+        run: |
+          ssh -i /tmp/ci_key -o StrictHostKeyChecking=no ubuntu@$SSH_HOST \
+            "sudo kubectl get pods -A || true
+             sudo journalctl -u clay --no-pager --lines=100 || true" || true
+
+      - name: Remove CMX VM
+        if: always()
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+        run: replicated vm rm ${{ steps.create-vm.outputs.vm-id }} --force
+
+      - name: Archive CI customer
+        if: always()
+        uses: replicatedhq/compatibility-actions/archive-customer@v1
+        with:
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          customer-id: ${{ steps.create-customer.outputs.customer-id }}
