@@ -5,9 +5,8 @@ replicaCount: 1
 
 clay:
   image:
-    # proxy.replicated.com or your custom domain (e.g. proxy.clay.nz)
-    registry: proxy.clay.nz
-    repository: proxy/xav-pottery-shop/ghcr.io/xavpaice/pottery-shop
+    registry: ghcr.io
+    repository: xavpaice/pottery-shop
     tag: ""  # defaults to Chart.AppVersion when empty
     pullPolicy: IfNotPresent
 
@@ -100,7 +99,7 @@ features:
 postgres:
   managed: true
   cluster:
-    imageName: proxy.clay.nz/proxy/xav-pottery-shop/ghcr.io/cloudnative-pg/postgresql:18.3-system-trixie
+    imageName: ghcr.io/cloudnative-pg/postgresql:18.3-system-trixie
     instances: 1
     storage:
       size: 5Gi
@@ -114,15 +113,15 @@ postgres:
 # Pin to a specific patch version to avoid mutable-tag supply-chain risk.
 waitForPostgres:
   image:
-    registry: proxy.clay.nz
-    repository: proxy/xav-pottery-shop/index.docker.io/library/postgres
+    registry: index.docker.io
+    repository: library/postgres
     tag: 16.3-alpine3.20
 
 # -- Image used by webhook-wait Jobs to poll operator readiness.
 webhookWait:
   image:
-    registry: proxy.clay.nz
-    repository: proxy/xav-pottery-shop/index.docker.io/alpine/k8s
+    registry: index.docker.io
+    repository: alpine/k8s
     tag: "1.35.3"
 
 # -- Subchart operator toggles
@@ -136,7 +135,7 @@ webhookWait:
 cloudnative-pg:
   enabled: true   # -- default: true (full umbrella install bundles the operator)
   image:
-    repository: proxy.clay.nz/proxy/xav-pottery-shop/ghcr.io/cloudnative-pg/cloudnative-pg
+    repository: ghcr.io/cloudnative-pg/cloudnative-pg
   imagePullSecrets:
     - name: enterprise-pull-secret
 
@@ -147,7 +146,7 @@ cloudnative-pg:
 cert-manager:
   enabled: true   # -- default: true (full umbrella install bundles the operator)
   installCRDs: true  # -- install cert-manager CRDs (ClusterIssuer, Certificate, etc.)
-  imageRegistry: proxy.clay.nz/proxy/xav-pottery-shop/quay.io
+  imageRegistry: quay.io
   global:
     imagePullSecrets:
       - name: enterprise-pull-secret
@@ -156,6 +155,6 @@ cert-manager:
 replicated:
   nameOverride: clay-sdk
   image:
-    registry: proxy.clay.nz
+    registry: proxy.replicated.com
     repository: library/replicated-sdk-image
 

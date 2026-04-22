@@ -29,6 +29,7 @@ spec:
       managed: 'repl{{ ConfigOptionEquals "postgres_type" "managed" }}'
       cluster:
         instances: 'repl{{ ConfigOption "postgres_instances" }}'
+        imageName: 'repl{{ ReplicatedImageName (HelmValue ".Values.postgres.cluster.imageName") true }}'
       external:
         dsn: 'repl{{ ConfigOption "postgres_dsn" }}'
     ingress:
@@ -39,6 +40,23 @@ spec:
         acme:
           email: 'repl{{ ConfigOption "tls_acme_email" }}'
         secretName: 'repl{{ ConfigOption "tls_secret_name" }}'
+    clay:
+      image:
+        registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.clay.image.registry") }}'
+        repository: 'repl{{ ReplicatedImageRepository (HelmValue ".Values.clay.image.repository") }}'
+    waitForPostgres:
+      image:
+        registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.waitForPostgres.image.registry") }}'
+        repository: 'repl{{ ReplicatedImageRepository (HelmValue ".Values.waitForPostgres.image.repository") }}'
+    webhookWait:
+      image:
+        registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.webhookWait.image.registry") }}'
+        repository: 'repl{{ ReplicatedImageRepository (HelmValue ".Values.webhookWait.image.repository") }}'
+    cloudnative-pg:
+      image:
+        repository: 'repl{{ ReplicatedImageRepository (HelmValue ".Values.cloudnative-pg.image.repository") }}'
+    cert-manager:
+      imageRegistry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.cert-manager.imageRegistry") }}'
   # builder values are static and used only by the Replicated airgap builder.
   # They ensure helm template renders every conditional image path so the
   # builder can scan and bundle all images that could possibly be used.

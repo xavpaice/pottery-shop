@@ -311,24 +311,10 @@ jobs:
             sleep 10
           done
 
-      - name: Setup external postgres on VM
-        run: |
-          ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
-            "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y postgresql && \
-             sudo -u postgres createuser clay || true && \
-             sudo -u postgres psql -c \"ALTER USER clay WITH PASSWORD 'ci-test';\" && \
-             sudo -u postgres createdb -O clay clay || true && \
-             sudo sed -i \"s|#listen_addresses = 'localhost'|listen_addresses = '*'|\" /etc/postgresql/*/main/postgresql.conf && \
-             printf 'host clay clay 0.0.0.0/0 md5\n' | sudo tee -a /etc/postgresql/*/main/pg_hba.conf && \
-             sudo systemctl restart postgresql && \
-             sleep 3 && sudo systemctl is-active postgresql"
-
       - name: Create config values
         run: |
-          VM_IP=$(ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
-            "hostname -I | awk '{print \$1}'")
           ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
-            "cat > ~/config-values.yaml" <<EOF
+            "cat > ~/config-values.yaml" <<'EOF'
           apiVersion: kots.io/v1beta1
           kind: ConfigValues
           metadata:
@@ -341,10 +327,6 @@ jobs:
                 valuePlaintext: ci-test-session-secret
               ORDER_EMAIL:
                 value: ci@clay.nz
-              postgres_type:
-                value: external
-              postgres_dsn:
-                value: postgresql://clay:ci-test@${VM_IP}/clay
           EOF
 
       - name: Install Embedded Cluster
@@ -368,7 +350,7 @@ jobs:
       - name: Verify installation
         run: |
           ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
-            "K0S=\$(find /usr/local/bin /var/lib/embedded-cluster/bin /usr/bin -name k0s -type f 2>/dev/null | head -1)
+            "K0S=\$(find /usr/local/bin /var/lib/${{ env.APP_SLUG }}/bin /usr/bin -name k0s -type f 2>/dev/null | head -1)
              if [ -n \"\$K0S\" ]; then
                sudo \$K0S kubectl get nodes
                sudo \$K0S kubectl get pods -A
@@ -381,7 +363,7 @@ jobs:
         if: failure()
         run: |
           ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
-            "K0S=\$(find /usr/local/bin /var/lib/embedded-cluster/bin /usr/bin -name k0s -type f 2>/dev/null | head -1)
+            "K0S=\$(find /usr/local/bin /var/lib/${{ env.APP_SLUG }}/bin /usr/bin -name k0s -type f 2>/dev/null | head -1)
              echo 'k0s='\$K0S
              if [ -n \"\$K0S\" ]; then
                echo '=== Nodes ==='
