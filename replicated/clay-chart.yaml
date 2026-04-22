@@ -34,10 +34,6 @@ spec:
         acme:
           email: 'repl{{ ConfigOption "tls_acme_email" }}'
         secretName: 'repl{{ ConfigOption "tls_secret_name" }}'
-    features:
-      firingLogs:
-        enabled: 'repl{{ LicenseFieldValue "firing_logs_enabled" | ParseBool }}'
-
   # builder values are static and used only by the Replicated airgap builder.
   # They ensure helm template renders every conditional image path so the
   # builder can scan and bundle all images that could possibly be used.
@@ -48,9 +44,6 @@ spec:
       enabled: true
     cert-manager:
       enabled: true
-    features:
-      firingLogs:
-        enabled: true
     secrets:
       ADMIN_PASS: dummy
       SESSION_SECRET: dummy
