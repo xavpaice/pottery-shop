@@ -299,9 +299,13 @@ jobs:
           REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
         run: |
           for i in $(seq 1 30); do
-            STATUS=$(replicated vm ls --output json | \
-              jq -r '.[] | select(.id == "${{ steps.create-vm.outputs.vm-id }}") | .status')
-            [ "$STATUS" = "running" ] && break
+            VM_DATA=$(replicated vm ls --output json | \
+              jq '.[] | select(.id == "${{ steps.create-vm.outputs.vm-id }}")')
+            STATUS=$(echo "$VM_DATA" | jq -r '.status')
+            if [ "$STATUS" = "running" ]; then
+              echo "SSH_HOST=$(echo "$VM_DATA" | jq -r '.direct_ssh_endpoint')" >> "$GITHUB_ENV"
+              break
+            fi
             echo "VM status: $STATUS"
             sleep 10
           done
@@ -314,11 +318,7 @@ jobs:
           tar -xzf clay.tgz
 
       - name: Copy installer to VM
-        env:
-          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
         run: |
-          SSH_HOST=$(replicated vm ssh-endpoint ${{ steps.create-vm.outputs.vm-id }})
-          echo "SSH_HOST=$SSH_HOST" >> "$GITHUB_ENV"
           scp -i /tmp/ci_key -o StrictHostKeyChecking=no \
             clay license.yaml ubuntu@$SSH_HOST:/tmp/
 
