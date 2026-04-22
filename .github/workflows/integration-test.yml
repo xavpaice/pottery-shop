@@ -292,7 +292,7 @@ jobs:
             --ttl 30m \
             --ssh-public-key /tmp/ci_key.pub \
             --output json)
-          echo "vm-id=$(echo "$VM_JSON" | jq -r '.id')" >> "$GITHUB_OUTPUT"
+          echo "vm-id=$(echo "$VM_JSON" | jq -r '.[0].id')" >> "$GITHUB_OUTPUT"
 
       - name: Wait for VM to be running
         env:
