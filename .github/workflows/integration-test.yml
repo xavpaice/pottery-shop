@@ -334,9 +334,9 @@ jobs:
           spec:
             values:
               ADMIN_PASS:
-                value: ci-test-only
+                valuePlaintext: ci-test-only
               SESSION_SECRET:
-                value: ci-test-session-secret
+                valuePlaintext: ci-test-session-secret
               ORDER_EMAIL:
                 value: ci@clay.nz
           EOF
