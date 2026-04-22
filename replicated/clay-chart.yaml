@@ -6,3 +6,22 @@ spec:
   chart:
     name: clay
     chartVersion: 0.1.0
+
+  # builder values are static and used only by the Replicated airgap builder.
+  # They ensure helm template renders every conditional image path so the
+  # builder can scan and bundle all images that could possibly be used.
+  builder:
+    postgres:
+      managed: true
+    cloudnative-pg:
+      enabled: true
+    cert-manager:
+      enabled: true
+    features:
+      firingLogs:
+        enabled: true
+    secrets:
+      ADMIN_PASS: dummy
+      SESSION_SECRET: dummy
+    config:
+      ORDER_EMAIL: builder@example.com
