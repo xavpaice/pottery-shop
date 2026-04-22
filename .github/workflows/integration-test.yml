@@ -333,7 +333,9 @@ jobs:
         env:
           LICENSE_ID: ${{ steps.create-customer.outputs.license-id }}
         run: |
-          ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
+          ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT \
+            -o ServerAliveInterval=30 -o ServerAliveCountMax=40 \
+            ci@$SSH_HOST \
             "curl -f 'https://replicated.app/embedded/${{ env.APP_SLUG }}/unstable' \
                -H 'Authorization: $LICENSE_ID' \
                -o ~/${{ env.APP_SLUG }}.tgz && \
@@ -348,15 +350,15 @@ jobs:
       - name: Verify installation
         run: |
           ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
-            "sudo kubectl get nodes && sudo kubectl get pods -A"
+            "sudo ${{ env.APP_SLUG }} kubectl get nodes && sudo ${{ env.APP_SLUG }} kubectl get pods -A"
 
       - name: Collect debug info on failure
         if: failure()
         run: |
           ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
-            "sudo /usr/local/bin/kubectl get pods -A || true
-             sudo /usr/local/bin/kubectl get events -A --sort-by='.lastTimestamp' | tail -30 || true
-             sudo journalctl -u xav-pottery-shop --no-pager --lines=50 || true" || true
+            "sudo ${{ env.APP_SLUG }} kubectl get pods -A || true
+             sudo ${{ env.APP_SLUG }} kubectl get events -A --sort-by='.lastTimestamp' | tail -30 || true
+             sudo journalctl -u ${{ env.APP_SLUG }} --no-pager --lines=50 || true" || true
 
       - name: Remove CMX VM
         if: always()
