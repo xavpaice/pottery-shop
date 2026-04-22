@@ -8,9 +8,9 @@ spec:
     chartVersion: 0.1.0
 
   helmInstallFlags:
-    - "--timeout=15m"
+    - "--timeout=20m"
   helmUpgradeFlags:
-    - "--timeout=15m"
+    - "--timeout=20m"
 
   values:
     secrets:

@@ -350,14 +350,14 @@ jobs:
       - name: Verify installation
         run: |
           ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
-            "sudo ${{ env.APP_SLUG }} kubectl get nodes && sudo ${{ env.APP_SLUG }} kubectl get pods -A"
+            "sudo k0s kubectl get nodes && sudo k0s kubectl get pods -A"
 
       - name: Collect debug info on failure
         if: failure()
         run: |
           ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
-            "sudo ${{ env.APP_SLUG }} kubectl get pods -A || true
-             sudo ${{ env.APP_SLUG }} kubectl get events -A --sort-by='.lastTimestamp' | tail -30 || true
+            "sudo k0s kubectl get pods -A || true
+             sudo k0s kubectl get events -A --sort-by='.lastTimestamp' | tail -30 || true
              sudo journalctl -u ${{ env.APP_SLUG }} --no-pager --lines=50 || true" || true
 
       - name: Remove CMX VM
