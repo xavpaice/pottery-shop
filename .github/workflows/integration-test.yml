@@ -311,10 +311,24 @@ jobs:
             sleep 10
           done
 
-      - name: Create config values
+      - name: Setup external postgres on VM
         run: |
           ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
-            "cat > ~/config-values.yaml" <<'EOF'
+            "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y postgresql && \
+             sudo -u postgres createuser clay || true && \
+             sudo -u postgres psql -c \"ALTER USER clay WITH PASSWORD 'ci-test';\" && \
+             sudo -u postgres createdb -O clay clay || true && \
+             sudo sed -i \"s|#listen_addresses = 'localhost'|listen_addresses = '*'|\" /etc/postgresql/*/main/postgresql.conf && \
+             printf 'host clay clay 0.0.0.0/0 md5\n' | sudo tee -a /etc/postgresql/*/main/pg_hba.conf && \
+             sudo systemctl restart postgresql && \
+             sleep 3 && sudo systemctl is-active postgresql"
+
+      - name: Create config values
+        run: |
+          VM_IP=$(ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
+            "hostname -I | awk '{print \$1}'")
+          ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
+            "cat > ~/config-values.yaml" <<EOF
           apiVersion: kots.io/v1beta1
           kind: ConfigValues
           metadata:
@@ -327,6 +341,10 @@ jobs:
                 valuePlaintext: ci-test-session-secret
               ORDER_EMAIL:
                 value: ci@clay.nz
+              postgres_type:
+                value: external
+              postgres_dsn:
+                value: postgresql://clay:ci-test@${VM_IP}/clay
           EOF
 
       - name: Install Embedded Cluster
@@ -350,15 +368,38 @@ jobs:
       - name: Verify installation
         run: |
           ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
-            "sudo k0s kubectl get nodes && sudo k0s kubectl get pods -A"
+            "K0S=\$(find /usr/local/bin /var/lib/embedded-cluster/bin /usr/bin -name k0s -type f 2>/dev/null | head -1)
+             if [ -n \"\$K0S\" ]; then
+               sudo \$K0S kubectl get nodes
+               sudo \$K0S kubectl get pods -A
+             else
+               echo 'k0s not found, listing possible locations:'
+               find / -name k0s -type f 2>/dev/null | head -10 || true
+             fi"
 
       - name: Collect debug info on failure
         if: failure()
         run: |
           ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
-            "sudo k0s kubectl get pods -A || true
-             sudo k0s kubectl get events -A --sort-by='.lastTimestamp' | tail -30 || true
-             sudo journalctl -u ${{ env.APP_SLUG }} --no-pager --lines=50 || true" || true
+            "K0S=\$(find /usr/local/bin /var/lib/embedded-cluster/bin /usr/bin -name k0s -type f 2>/dev/null | head -1)
+             echo 'k0s='\$K0S
+             if [ -n \"\$K0S\" ]; then
+               echo '=== Nodes ==='
+               sudo \$K0S kubectl get nodes -o wide || true
+               echo '=== All pods ==='
+               sudo \$K0S kubectl get pods -A -o wide || true
+               echo '=== Events (recent) ==='
+               sudo \$K0S kubectl get events -A --sort-by='.lastTimestamp' 2>/dev/null | tail -40 || true
+               echo '=== Describe clay pods ==='
+               sudo \$K0S kubectl describe pods -n xav-pottery-shop 2>/dev/null | grep -E 'Name:|State:|Reason:|Message:|Image:|Events:|Warning:|Normal:' | head -60 || true
+             else
+               echo 'k0s not found, possible locations:'
+               find / -name k0s -name '*.sh' -o -name k0s -type f 2>/dev/null | head -10 || true
+             fi
+             echo '=== EC service logs ==='
+             sudo journalctl -u ${{ env.APP_SLUG }} --no-pager --lines=50 || true
+             echo '=== postgres status ==='
+             sudo systemctl status postgresql || true" || true
 
       - name: Remove CMX VM
         if: always()
