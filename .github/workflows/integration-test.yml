@@ -315,18 +315,17 @@ jobs:
         run: |
           curl -f "https://replicated.app/embedded/${{ env.APP_SLUG }}/unstable" \
             -H "Authorization: ${{ steps.create-customer.outputs.license-id }}" \
-            -o installer.tgz
-          tar -xzf installer.tgz
+            -o ${{ env.APP_SLUG }}.tgz
 
       - name: Copy installer to VM
         run: |
           scp -i /tmp/ci_key -o StrictHostKeyChecking=no -P $SSH_PORT \
-            ${{ env.APP_SLUG }} license.yaml ci@$SSH_HOST:/tmp/
+            ${{ env.APP_SLUG }}.tgz ci@$SSH_HOST:~/
 
       - name: Create config values
         run: |
           ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
-            "cat > /tmp/config-values.yaml" <<'EOF'
+            "cat > ~/config-values.yaml" <<'EOF'
           apiVersion: kots.io/v1beta1
           kind: ConfigValues
           metadata:
@@ -344,12 +343,13 @@ jobs:
       - name: Install Embedded Cluster
         run: |
           ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
-            "sudo /tmp/${{ env.APP_SLUG }} install \
-              --license /tmp/license.yaml \
-              --config-values /tmp/config-values.yaml \
-              --headless \
-              --installer-password ci-test-password \
-              --yes"
+            "tar -xzf ~/${{ env.APP_SLUG }}.tgz && \
+             sudo ~/${{ env.APP_SLUG }} install \
+               --license ~/license.yaml \
+               --config-values ~/config-values.yaml \
+               --headless \
+               --installer-password ci-test-password \
+               --yes"
 
       - name: Verify installation
         run: |
