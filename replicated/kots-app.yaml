@@ -4,7 +4,7 @@ metadata:
   name: clay
 spec:
   title: Clay Pottery Shop
-  icon: https://raw.githubusercontent.com/xavpaice/pottery-shop/main/static/favicon.svg
+  icon: https://raw.githubusercontent.com/xavpaice/pottery-shop/main/static/favicon-48.png
   statusInformers:
     - deployment/clay
   ports:
