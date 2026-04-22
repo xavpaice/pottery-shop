@@ -354,8 +354,9 @@ jobs:
         if: failure()
         run: |
           ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
-            "sudo kubectl get pods -A || true
-             sudo journalctl -u clay --no-pager --lines=100 || true" || true
+            "sudo /usr/local/bin/kubectl get pods -A || true
+             sudo /usr/local/bin/kubectl get events -A --sort-by='.lastTimestamp' | tail -30 || true
+             sudo journalctl -u xav-pottery-shop --no-pager --lines=50 || true" || true
 
       - name: Remove CMX VM
         if: always()

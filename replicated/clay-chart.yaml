@@ -7,6 +7,11 @@ spec:
     name: clay
     chartVersion: 0.1.0
 
+  helmInstallFlags:
+    - "--timeout=15m"
+  helmUpgradeFlags:
+    - "--timeout=15m"
+
   values:
     secrets:
       ADMIN_PASS: 'repl{{ ConfigOption "ADMIN_PASS" }}'
