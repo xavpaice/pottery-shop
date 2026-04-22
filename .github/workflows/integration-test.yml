@@ -261,18 +261,20 @@ jobs:
 
       - name: Create CI customer
         id: create-customer
-        uses: replicatedhq/compatibility-actions/create-customer@v1
-        with:
-          app-slug: ${{ env.APP_SLUG }}
-          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
-          customer-name: ci-ec-pr-${{ github.event.pull_request.number }}-${{ github.run_id }}
-          channel-slug: ${{ needs.build-and-release.outputs.channel-slug }}
-          customer-email: ci-ec-pr-${{ github.event.pull_request.number }}@clay.nz
-          license-type: dev
-          expires-in: 1
-          entitlements: |
-            - name: embedded-cluster-enabled
-              value: "true"
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+        run: |
+          CUSTOMER_JSON=$(replicated customer create \
+            --app ${{ env.APP_SLUG }} \
+            --name ci-ec-pr-${{ github.event.pull_request.number }}-${{ github.run_id }} \
+            --channel ${{ needs.build-and-release.outputs.channel-slug }} \
+            --email ci-ec-pr-${{ github.event.pull_request.number }}@clay.nz \
+            --type dev \
+            --expires-in 24h \
+            --entitlement embedded-cluster-enabled=true \
+            --output json)
+          echo "customer-id=$(echo "$CUSTOMER_JSON" | jq -r '.id')" >> "$GITHUB_OUTPUT"
+          echo "license-id=$(echo "$CUSTOMER_JSON" | jq -r '.installationId')" >> "$GITHUB_OUTPUT"
 
       - name: Generate SSH key
         run: ssh-keygen -t ed25519 -f /tmp/ci_key -N ""
@@ -367,7 +369,9 @@ jobs:
 
       - name: Archive CI customer
         if: always()
-        uses: replicatedhq/compatibility-actions/archive-customer@v1
-        with:
-          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
-          customer-id: ${{ steps.create-customer.outputs.customer-id }}
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+        run: |
+          replicated customer archive \
+            --app ${{ env.APP_SLUG }} \
+            --customer ${{ steps.create-customer.outputs.customer-id }}
