@@ -66,7 +66,7 @@
       "type": "object",
       "properties": {
         "enabled": {
-          "type": "boolean"
+          "anyOf": [{"type": "boolean"}, {"type": "string"}]
         },
         "className": {
           "type": "string",
@@ -96,7 +96,7 @@
                   "description": "letsencrypt mode only -- required for ACME registration"
                 },
                 "production": {
-                  "type": "boolean",
+                  "anyOf": [{"type": "boolean"}, {"type": "string"}],
                   "description": "false = staging ACME endpoint"
                 }
               }
@@ -140,7 +140,7 @@
     "persistence": {
       "type": "object",
       "properties": {
-        "enabled": { "type": "boolean" },
+        "enabled": { "anyOf": [{"type": "boolean"}, {"type": "string"}] },
         "accessMode": {
           "type": "string",
           "enum": ["ReadWriteOnce", "ReadWriteMany", "ReadOnlyMany"]
@@ -234,7 +234,7 @@
       "type": "object",
       "properties": {
         "managed": {
-          "type": "boolean",
+          "anyOf": [{"type": "boolean"}, {"type": "string"}],
           "description": "true = CNPG manages an in-cluster Postgres; false = use external DSN"
         },
         "cluster": {
@@ -242,8 +242,10 @@
           "description": "CNPG cluster settings (managed mode only)",
           "properties": {
             "instances": {
-              "type": "integer",
-              "minimum": 1
+              "anyOf": [
+                {"type": "integer", "minimum": 1},
+                {"type": "string"}
+              ]
             },
             "storage": {
               "type": "object",
@@ -304,7 +306,7 @@
       "description": "CloudNativePG operator subchart toggle (D-06)",
       "properties": {
         "enabled": {
-          "type": "boolean",
+          "anyOf": [{"type": "boolean"}, {"type": "string"}],
           "description": "true = bundle and install CNPG operator as a subchart; false = operator is pre-installed"
         }
       }
@@ -314,11 +316,11 @@
       "description": "cert-manager operator subchart toggle (D-06)",
       "properties": {
         "enabled": {
-          "type": "boolean",
+          "anyOf": [{"type": "boolean"}, {"type": "string"}],
           "description": "true = bundle and install cert-manager as a subchart; false = operator is pre-installed"
         },
         "installCRDs": {
-          "type": "boolean",
+          "anyOf": [{"type": "boolean"}, {"type": "string"}],
           "description": "Install cert-manager CRDs (ClusterIssuer, Certificate, etc.)"
         }
       }
@@ -331,8 +333,8 @@
           "type": "object",
           "properties": {
             "enabled": {
-              "type": "boolean",
-              "description": "Enable seller kiln-session tracking (firing logs + temperature readings). Planned for license gating in a future release."
+              "anyOf": [{"type": "boolean"}, {"type": "string"}],
+              "description": "Enable seller kiln-session tracking (firing logs + temperature readings)."
             }
           }
         }
