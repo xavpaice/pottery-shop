@@ -311,17 +311,6 @@ jobs:
             sleep 10
           done
 
-      - name: Download EC installer
-        run: |
-          curl -f "https://replicated.app/embedded/${{ env.APP_SLUG }}/unstable" \
-            -H "Authorization: ${{ steps.create-customer.outputs.license-id }}" \
-            -o ${{ env.APP_SLUG }}.tgz
-
-      - name: Copy installer to VM
-        run: |
-          scp -i /tmp/ci_key -o StrictHostKeyChecking=no -P $SSH_PORT \
-            ${{ env.APP_SLUG }}.tgz ci@$SSH_HOST:~/
-
       - name: Create config values
         run: |
           ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
@@ -341,9 +330,14 @@ jobs:
           EOF
 
       - name: Install Embedded Cluster
+        env:
+          LICENSE_ID: ${{ steps.create-customer.outputs.license-id }}
         run: |
           ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
-            "tar -xzf ~/${{ env.APP_SLUG }}.tgz && \
+            "curl -f 'https://replicated.app/embedded/${{ env.APP_SLUG }}/unstable' \
+               -H 'Authorization: $LICENSE_ID' \
+               -o ~/${{ env.APP_SLUG }}.tgz && \
+             tar -xzf ~/${{ env.APP_SLUG }}.tgz && \
              sudo ~/${{ env.APP_SLUG }} install \
                --license ~/license.yaml \
                --config-values ~/config-values.yaml \
