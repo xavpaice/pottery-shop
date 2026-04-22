@@ -267,7 +267,7 @@ jobs:
           CUSTOMER_JSON=$(replicated customer create \
             --app ${{ env.APP_SLUG }} \
             --name ci-ec-pr-${{ github.event.pull_request.number }}-${{ github.run_id }} \
-            --channel ${{ needs.build-and-release.outputs.channel-slug }} \
+            --channel Unstable \
             --email ci-ec-pr-${{ github.event.pull_request.number }}@clay.nz \
             --type dev \
             --expires-in 24h \
@@ -308,7 +308,7 @@ jobs:
 
       - name: Download EC installer
         run: |
-          curl -fL https://replicated.app/embedded/${{ env.APP_SLUG }}/${{ needs.build-and-release.outputs.channel-slug }} \
+          curl -fL https://replicated.app/embedded/${{ env.APP_SLUG }}/Unstable \
             -H "Authorization: ${{ steps.create-customer.outputs.license-id }}" \
             -o clay.tgz
           tar -xzf clay.tgz
