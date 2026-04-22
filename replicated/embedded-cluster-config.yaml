@@ -3,6 +3,6 @@ kind: Config
 metadata:
   name: clay
 spec:
-  version: "3.0.0-alpha-31+k8s-1.34"
+  version: "3.0.0-beta.2+k8s-1.34"
   domains:
     proxyRegistryDomain: proxy.clay.nz
