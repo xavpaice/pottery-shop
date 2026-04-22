@@ -136,7 +136,9 @@ jobs:
           kubectl run ci-postgres --image=postgres:15 --restart=Never \
             --env=POSTGRES_PASSWORD=ci-test --env=POSTGRES_DB=ci
           kubectl wait pod/ci-postgres --for=condition=Ready --timeout=60s
-          echo "dsn=postgresql://postgres:ci-test@$(kubectl get pod ci-postgres -o jsonpath='{.status.podIP}')/ci" >> "$GITHUB_OUTPUT"
+          kubectl port-forward pod/ci-postgres 5432:5432 &
+          sleep 2
+          echo "dsn=postgresql://postgres:ci-test@localhost/ci" >> "$GITHUB_OUTPUT"
 
       - name: Run preflight checks
         run: |

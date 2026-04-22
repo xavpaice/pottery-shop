@@ -27,7 +27,12 @@ spec:
 
   analyzers:
     {{- if and (not .Values.postgres.managed) .Values.postgres.external.dsn }}
-    - postgres:
+    - docString: |
+        Title: External Database Connectivity
+        Requirement:
+          - PostgreSQL must be reachable at the configured DSN
+        Verifies the external PostgreSQL database accepts connections from cluster nodes.
+      postgres:
         checkName: External database connectivity
         collectorName: external-db
         outcomes:
