@@ -17,7 +17,7 @@ spec:
     - --timeout=5m
   values:
     image:
-      repository: 'repl{{ ReplicatedImageRegistry "proxy.clay.nz/proxy/xav-pottery-shop/ghcr.io" }}/cloudnative-pg/cloudnative-pg'
+      repository: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.image.repository") }}'
     imagePullSecrets:
       - name: enterprise-pull-secret
   builder:
