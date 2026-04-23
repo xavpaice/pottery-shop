@@ -74,6 +74,7 @@ jobs:
           helm package chart/clay/ --debug -u -d replicated \
             --version ${{ steps.version.outputs.version }} \
             --app-version ${{ steps.version.outputs.version }}
+          cp chart/clay/charts/cloudnative-pg-0.28.0.tgz replicated/
 
       - name: Update HelmChart CR version
         run: |
@@ -245,3 +246,168 @@ jobs:
         with:
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
           customer-id: ${{ steps.create-customer.outputs.customer-id }}
+
+  ec-integration-test:
+    needs: build-and-release
+    if: github.event.pull_request.head.repo.fork == false
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Replicated CLI
+        run: |
+          curl -fsSL https://github.com/replicatedhq/replicated/releases/download/v0.124.5/replicated_0.124.5_linux_amd64.tar.gz | \
+            tar xz -C /usr/local/bin replicated
+
+      - name: Create CI customer
+        id: create-customer
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+        run: |
+          CUSTOMER_JSON=$(replicated customer create \
+            --app ${{ env.APP_SLUG }} \
+            --name ci-ec-pr-${{ github.event.pull_request.number }}-${{ github.run_id }} \
+            --channel Unstable \
+            --email ci-ec-pr-${{ github.event.pull_request.number }}@clay.nz \
+            --type dev \
+            --expires-in 24h \
+            --embedded-cluster-download \
+            --airgap \
+            --output json)
+          echo "customer-id=$(echo "$CUSTOMER_JSON" | jq -r '.id')" >> "$GITHUB_OUTPUT"
+          echo "license-id=$(echo "$CUSTOMER_JSON" | jq -r '.installationId')" >> "$GITHUB_OUTPUT"
+
+      - name: Generate SSH key
+        run: ssh-keygen -t ed25519 -C "ci@clay.nz" -f /tmp/ci_key -N ""
+
+      - name: Create CMX VM
+        id: create-vm
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+        run: |
+          VM_JSON=$(replicated vm create \
+            --distribution ubuntu \
+            --version 24.04 \
+            --name pottery-ec-ci-${{ github.run_id }} \
+            --ttl 30m \
+            --ssh-public-key /tmp/ci_key.pub \
+            --output json)
+          echo "vm-id=$(echo "$VM_JSON" | jq -r '.[0].id')" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for VM to be running
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+        run: |
+          for i in $(seq 1 30); do
+            VM_DATA=$(replicated vm ls --output json | \
+              jq '.[] | select(.id == "${{ steps.create-vm.outputs.vm-id }}")')
+            STATUS=$(echo "$VM_DATA" | jq -r '.status')
+            if [ "$STATUS" = "running" ]; then
+              echo "SSH_HOST=$(echo "$VM_DATA" | jq -r '.direct_ssh_endpoint')" >> "$GITHUB_ENV"
+              echo "SSH_PORT=$(echo "$VM_DATA" | jq -r '.direct_ssh_port')" >> "$GITHUB_ENV"
+              break
+            fi
+            echo "VM status: $STATUS"
+            sleep 10
+          done
+
+      - name: Create config values
+        run: |
+          ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
+            "cat > ~/config-values.yaml" <<'EOF'
+          apiVersion: kots.io/v1beta1
+          kind: ConfigValues
+          metadata:
+            name: clay
+          spec:
+            values:
+              ADMIN_PASS:
+                valuePlaintext: ci-test-only
+              SESSION_SECRET:
+                valuePlaintext: ci-test-session-secret
+              ORDER_EMAIL:
+                value: ci@clay.nz
+          EOF
+
+      - name: Install Embedded Cluster
+        env:
+          LICENSE_ID: ${{ steps.create-customer.outputs.license-id }}
+        run: |
+          ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT \
+            -o ServerAliveInterval=30 -o ServerAliveCountMax=40 \
+            ci@$SSH_HOST \
+            "curl -f 'https://replicated.app/embedded/${{ env.APP_SLUG }}/unstable' \
+               -H 'Authorization: $LICENSE_ID' \
+               -o ~/${{ env.APP_SLUG }}.tgz && \
+             tar -xzf ~/${{ env.APP_SLUG }}.tgz && \
+             sudo ~/${{ env.APP_SLUG }} install \
+               --license ~/license.yaml \
+               --config-values ~/config-values.yaml \
+               --headless \
+               --installer-password ci-test-password \
+               --yes"
+
+      - name: Verify installation
+        run: |
+          ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT \
+            -o ServerAliveInterval=30 -o ServerAliveCountMax=20 \
+            ci@$SSH_HOST \
+            "K0S=\$(find /usr/local/bin /var/lib/${{ env.APP_SLUG }}/bin /usr/bin -name k0s -type f 2>/dev/null | head -1)
+             if [ -z \"\$K0S\" ]; then
+               echo 'k0s not found'; exit 1
+             fi
+             NS=${{ env.APP_SLUG }}
+             echo '=== Nodes ==='
+             sudo \$K0S kubectl get nodes
+             echo '=== Waiting for clay deployment ==='
+             sudo \$K0S kubectl rollout status deployment/clay -n \$NS --timeout=300s
+             echo '=== Waiting for Postgres cluster ==='
+             for i in \$(seq 1 60); do
+               PHASE=\$(sudo \$K0S kubectl get clusters.postgresql.cnpg.io -n \$NS clay-postgres \
+                 -o jsonpath='{.status.phase}' 2>/dev/null || echo 'pending')
+               if echo \"\$PHASE\" | grep -q 'Cluster in healthy state'; then
+                 echo 'Postgres ready'; break
+               fi
+               printf '.'
+               sleep 5
+             done
+             echo ''
+             sudo \$K0S kubectl get pods -A"
+
+      - name: Collect debug info on failure
+        if: failure()
+        run: |
+          ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
+            "K0S=\$(find /usr/local/bin /var/lib/${{ env.APP_SLUG }}/bin /usr/bin -name k0s -type f 2>/dev/null | head -1)
+             echo 'k0s='\$K0S
+             if [ -n \"\$K0S\" ]; then
+               echo '=== Nodes ==='
+               sudo \$K0S kubectl get nodes -o wide || true
+               echo '=== All pods ==='
+               sudo \$K0S kubectl get pods -A -o wide || true
+               echo '=== Events (recent) ==='
+               sudo \$K0S kubectl get events -A --sort-by='.lastTimestamp' 2>/dev/null | tail -40 || true
+               echo '=== Describe clay pods ==='
+               sudo \$K0S kubectl describe pods -n xav-pottery-shop 2>/dev/null | grep -E 'Name:|State:|Reason:|Message:|Image:|Events:|Warning:|Normal:' | head -60 || true
+             else
+               echo 'k0s not found, possible locations:'
+               find / -name k0s -name '*.sh' -o -name k0s -type f 2>/dev/null | head -10 || true
+             fi
+             echo '=== EC service logs ==='
+             sudo journalctl -u ${{ env.APP_SLUG }} --no-pager --lines=50 || true
+             echo '=== postgres status ==='
+             sudo systemctl status postgresql || true" || true
+
+      - name: Remove CMX VM
+        if: always()
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+        run: replicated vm rm ${{ steps.create-vm.outputs.vm-id }}
+
+      - name: Archive CI customer
+        if: always()
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+          REPLICATED_APP: ${{ env.APP_SLUG }}
+        run: replicated customer archive ${{ steps.create-customer.outputs.customer-id }}

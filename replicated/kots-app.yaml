@@ -1,0 +1,18 @@
+apiVersion: kots.io/v1beta1
+kind: Application
+metadata:
+  name: clay
+spec:
+  title: Clay Pottery Shop
+  icon: https://raw.githubusercontent.com/xavpaice/pottery-shop/main/static/favicon-48.png
+  statusInformers:
+    - deployment/clay
+  ports:
+    - serviceName: clay
+      servicePort: 80
+      localPort: 8080
+      applicationUrl: "http://clay"
+  additionalImages:
+    - ghcr.io/cloudnative-pg/postgresql:18.3-system-trixie
+    - index.docker.io/library/postgres:16.3-alpine3.20
+    - index.docker.io/alpine/k8s:1.35.3

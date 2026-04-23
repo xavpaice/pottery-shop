@@ -1,0 +1,124 @@
+apiVersion: kots.io/v1beta1
+kind: Config
+metadata:
+  name: clay
+spec:
+  groups:
+    - name: auth
+      title: Authentication
+      items:
+        - name: ADMIN_PASS
+          title: Admin Password
+          help_text: Password for the admin account.
+          type: password
+          required: true
+        - name: SESSION_SECRET
+          title: Session Secret
+          help_text: Secret used to sign session cookies. Auto-generated on first install.
+          type: password
+          default: 'repl{{ RandomString 64 }}'
+
+    - name: application
+      title: Application
+      items:
+        - name: ORDER_EMAIL
+          title: Order Notification Email
+          help_text: Email address that receives order notification emails.
+          type: text
+          required: true
+        - name: BASE_URL
+          title: Base URL
+          help_text: Public URL of the pottery shop (e.g. https://shop.example.com).
+          type: text
+          default: "https://clay.nz"
+        - name: ADMIN_USER
+          title: Admin Username
+          type: text
+          default: "admin"
+
+    - name: smtp
+      title: SMTP / Email
+      description: Configure outbound email for order notifications.
+      items:
+        - name: SMTP_HOST
+          title: SMTP Host
+          type: text
+        - name: SMTP_PORT
+          title: SMTP Port
+          type: text
+          default: "587"
+        - name: SMTP_FROM
+          title: From Address
+          type: text
+        - name: SMTP_USER
+          title: SMTP Username
+          type: text
+        - name: SMTP_PASS
+          title: SMTP Password
+          type: password
+
+    - name: database
+      title: Database
+      description: Configure how the pottery shop connects to PostgreSQL.
+      items:
+        - name: postgres_type
+          title: Database Type
+          help_text: Managed runs CloudNativePG in-cluster; External connects to your existing PostgreSQL.
+          type: select_one
+          default: managed
+          items:
+            - name: managed
+              title: Managed (CloudNativePG)
+            - name: external
+              title: External (BYO PostgreSQL)
+        - name: postgres_instances
+          title: PostgreSQL Instances
+          help_text: Number of CNPG cluster instances. 1 = single primary; 2+ = HA with streaming replicas.
+          type: text
+          default: "1"
+          when: 'repl{{ ConfigOptionEquals "postgres_type" "managed" }}'
+        - name: postgres_dsn
+          title: External DSN
+          help_text: PostgreSQL connection string (e.g. postgresql://user:pass@host/db).
+          type: text
+          when: 'repl{{ ConfigOptionEquals "postgres_type" "external" }}'
+
+    - name: ingress
+      title: Ingress & TLS
+      items:
+        - name: ingress_enabled
+          title: Enable Ingress
+          type: bool
+          default: "0"
+        - name: ingress_host
+          title: Hostname
+          help_text: DNS name clients will use to reach the pottery shop (e.g. shop.example.com).
+          type: text
+          required: true
+          when: 'repl{{ ConfigOptionEquals "ingress_enabled" "1" }}'
+        - name: tls_mode
+          title: TLS Mode
+          type: select_one
+          default: selfsigned
+          when: 'repl{{ ConfigOptionEquals "ingress_enabled" "1" }}'
+          items:
+            - name: selfsigned
+              title: Self-signed
+            - name: letsencrypt
+              title: Let's Encrypt
+            - name: custom
+              title: Existing Secret
+        - name: tls_acme_email
+          title: Let's Encrypt Contact Email
+          type: text
+          when: 'repl{{ and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionEquals "tls_mode" "letsencrypt") }}'
+          validation:
+            regex:
+              pattern: '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
+              message: Enter a valid email address.
+        - name: tls_secret_name
+          title: Existing TLS Secret Name
+          help_text: Name of a pre-created kubernetes.io/tls Secret in the app namespace.
+          type: text
+          when: 'repl{{ and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionEquals "tls_mode" "custom") }}'
+

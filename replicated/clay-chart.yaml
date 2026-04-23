@@ -6,20 +6,65 @@ spec:
   chart:
     name: clay
     chartVersion: 0.1.0
+  weight: 10
 
+  helmInstallFlags:
+    - "--timeout=20m"
+  helmUpgradeFlags:
+    - "--timeout=20m"
+
+  values:
+    secrets:
+      ADMIN_PASS: 'repl{{ ConfigOption "ADMIN_PASS" }}'
+      SESSION_SECRET: 'repl{{ ConfigOption "SESSION_SECRET" }}'
+      SMTP_USER: 'repl{{ ConfigOption "SMTP_USER" }}'
+      SMTP_PASS: 'repl{{ ConfigOption "SMTP_PASS" }}'
+    config:
+      ORDER_EMAIL: 'repl{{ ConfigOption "ORDER_EMAIL" }}'
+      BASE_URL: 'repl{{ ConfigOption "BASE_URL" }}'
+      ADMIN_USER: 'repl{{ ConfigOption "ADMIN_USER" }}'
+      SMTP_HOST: 'repl{{ ConfigOption "SMTP_HOST" }}'
+      SMTP_PORT: 'repl{{ ConfigOption "SMTP_PORT" }}'
+      SMTP_FROM: 'repl{{ ConfigOption "SMTP_FROM" }}'
+    postgres:
+      managed: 'repl{{ ConfigOptionEquals "postgres_type" "managed" }}'
+      cluster:
+        instances: 'repl{{ ConfigOption "postgres_instances" }}'
+        imageName: 'repl{{ ReplicatedImageName (HelmValue ".Values.postgres.cluster.imageName") true }}'
+      external:
+        dsn: 'repl{{ ConfigOption "postgres_dsn" }}'
+    ingress:
+      enabled: 'repl{{ ConfigOptionEquals "ingress_enabled" "1" }}'
+      host: 'repl{{ ConfigOption "ingress_host" }}'
+      tls:
+        mode: 'repl{{ ConfigOption "tls_mode" }}'
+        acme:
+          email: 'repl{{ ConfigOption "tls_acme_email" }}'
+        secretName: 'repl{{ ConfigOption "tls_secret_name" }}'
+    clay:
+      image:
+        registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.clay.image.registry") true }}'
+        repository: 'repl{{ ReplicatedImageRepository (HelmValue ".Values.clay.image.repository") true }}'
+    waitForPostgres:
+      image:
+        registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.waitForPostgres.image.registry") true }}'
+        repository: 'repl{{ ReplicatedImageRepository (HelmValue ".Values.waitForPostgres.image.repository") true }}'
+    webhookWait:
+      image:
+        registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.webhookWait.image.registry") true }}'
+        repository: 'repl{{ ReplicatedImageRepository (HelmValue ".Values.webhookWait.image.repository") true }}'
+    cloudnative-pg:
+      enabled: false
+    cert-manager:
+      imageRegistry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.cert-manager.imageRegistry") true }}'
   # builder values are static and used only by the Replicated airgap builder.
   # They ensure helm template renders every conditional image path so the
   # builder can scan and bundle all images that could possibly be used.
   builder:
     postgres:
       managed: true
-    cloudnative-pg:
-      enabled: true
     cert-manager:
       enabled: true
-    features:
-      firingLogs:
-        enabled: true
     secrets:
       ADMIN_PASS: dummy
       SESSION_SECRET: dummy

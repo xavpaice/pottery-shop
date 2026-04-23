@@ -1,4 +1,6 @@
-# CI test values for pre-installed operators mode (both operators pre-installed, CRs still render)
+# CI test values for KOTS/EC mode: operator installed as separate weight-5 chart.
+# cloudnative-pg.enabled=false prevents the subchart from installing in the clay release;
+# postgres.managed=true still renders the Cluster CR as a plain resource.
 secrets:
   ADMIN_PASS: "ci-test-only"
   SESSION_SECRET: "ci-test-session-secret-not-for-production"

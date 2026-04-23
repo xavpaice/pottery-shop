@@ -12,7 +12,7 @@ metadata:
 spec:
   acme:
     email: {{ .Values.ingress.tls.acme.email }}
-    {{- if .Values.ingress.tls.acme.production }}
+    {{- if include "clay.isTrue" .Values.ingress.tls.acme.production }}
     # ACME production endpoint
     server: https://acme-v02.api.letsencrypt.org/directory
     {{- else }}

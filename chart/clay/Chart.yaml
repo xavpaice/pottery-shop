@@ -9,7 +9,7 @@ dependencies:
   - name: cloudnative-pg
     repository: oci://ghcr.io/cloudnative-pg/charts
     version: "0.28.0"
-    condition: cloudnative-pg.enabled
+    condition: cloudnative-pg.enabled,postgres.managed
   - name: cert-manager
     repository: oci://quay.io/jetstack/charts
     version: "v1.20.2"

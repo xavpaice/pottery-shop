@@ -1,4 +1,34 @@
 {{/*
+cnpgBundled -- true when cloudnative-pg is being installed as a subchart of this release.
+Returns truthy when cloudnative-pg.enabled is absent (nil) or true; falsy when explicitly false.
+KOTS deployments set cloudnative-pg.enabled=false because the operator is installed via a
+separate weight-5 HelmChart CR; this helper ensures templates behave correctly in both cases.
+*/}}
+{{- define "clay.cnpgBundled" -}}
+{{- if not (include "clay.isTrue" .Values.postgres.managed) -}}
+{{- /* external postgres — operator not bundled regardless */ -}}
+{{- else -}}
+  {{- $v := index .Values "cloudnative-pg" "enabled" -}}
+  {{- if kindIs "invalid" $v -}}true
+  {{- else if include "clay.isTrue" $v -}}true
+  {{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+isTrue -- handles both native YAML bool and the string "true"/"false" that
+KOTS produces when rendering ConfigOptionEquals into Helm values.
+Usage: {{- if include "clay.isTrue" .Values.some.boolField }}
+*/}}
+{{- define "clay.isTrue" -}}
+{{- if kindIs "bool" . -}}
+  {{- if . -}}true{{- end -}}
+{{- else -}}
+  {{- if eq (. | toString) "true" -}}true{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Expand the name of the chart.
 */}}
 {{- define "clay.name" -}}
