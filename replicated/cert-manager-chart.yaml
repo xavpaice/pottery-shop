@@ -7,6 +7,7 @@ spec:
     name: cert-manager
     chartVersion: v1.20.2
   weight: 5
+  exclude: "repl{{ or (ConfigOptionEquals `ingress_enabled` `0`) (ConfigOptionEquals `tls_mode` `custom`) }}"
 
   helmInstallFlags:
     - --wait

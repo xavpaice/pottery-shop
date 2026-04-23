@@ -7,6 +7,8 @@ spec:
     name: cloudnative-pg
     chartVersion: 0.28.0
   weight: 5
+  exclude: "repl{{ ConfigOptionEquals `postgres_type` `external` }}"
+
   helmInstallFlags:
     - --wait
     - --timeout=5m
