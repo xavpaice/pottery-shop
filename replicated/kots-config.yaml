@@ -83,6 +83,27 @@ spec:
           type: text
           when: 'repl{{ ConfigOptionEquals "postgres_type" "external" }}'
 
+    - name: network
+      title: Network
+      items:
+        - name: service_type
+          title: Service Type
+          help_text: NodePort exposes the app on a port on each node (recommended for Embedded Cluster). LoadBalancer provisions a cloud load balancer.
+          type: select_one
+          default: NodePort
+          items:
+            - name: NodePort
+              title: NodePort
+            - name: LoadBalancer
+              title: LoadBalancer
+            - name: ClusterIP
+              title: ClusterIP (no external access)
+        - name: service_node_port
+          title: NodePort Number
+          help_text: Port number in the 30000-32767 range. Leave blank to auto-assign.
+          type: text
+          when: 'repl{{ ConfigOptionEquals "service_type" "NodePort" }}'
+
     - name: ingress
       title: Ingress & TLS
       items:
