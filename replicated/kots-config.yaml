@@ -14,9 +14,9 @@ spec:
           required: true
         - name: SESSION_SECRET
           title: Session Secret
-          help_text: Secret used to sign session cookies. Auto-generated on first install.
           type: password
           default: 'repl{{ RandomString 64 }}'
+          hidden: true
 
     - name: application
       title: Application
@@ -82,6 +82,29 @@ spec:
           help_text: PostgreSQL connection string (e.g. postgresql://user:pass@host/db).
           type: text
           when: 'repl{{ ConfigOptionEquals "postgres_type" "external" }}'
+
+    - name: network
+      title: Network
+      items:
+        - name: service_type
+          title: Service Type
+          help_text: NodePort exposes the app on a port on each node (recommended for Embedded Cluster). LoadBalancer provisions a cloud load balancer. When Ingress is enabled this setting is ignored.
+          type: select_one
+          default: NodePort
+          when: 'repl{{ ConfigOptionEquals "ingress_enabled" "0" }}'
+          items:
+            - name: NodePort
+              title: NodePort
+            - name: LoadBalancer
+              title: LoadBalancer
+            - name: ClusterIP
+              title: ClusterIP (no external access)
+        - name: service_node_port
+          title: NodePort Number
+          help_text: Port number in the 30000-32767 range.
+          type: text
+          default: "30900"
+          when: 'repl{{ and (ConfigOptionEquals "ingress_enabled" "0") (ConfigOptionEquals "service_type" "NodePort") }}'
 
     - name: ingress
       title: Ingress & TLS

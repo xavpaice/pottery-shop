@@ -16,8 +16,9 @@ nameOverride: ""
 fullnameOverride: ""
 
 service:
-  type: ClusterIP
+  type: NodePort
   port: 80
+  nodePort: 30900
 
 ingress:
   enabled: false

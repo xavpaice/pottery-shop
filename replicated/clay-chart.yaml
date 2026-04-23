@@ -33,6 +33,9 @@ spec:
         imageName: 'repl{{ ReplicatedImageName (HelmValue ".Values.postgres.cluster.imageName") true }}'
       external:
         dsn: 'repl{{ ConfigOption "postgres_dsn" }}'
+    service:
+      type: 'repl{{ ConfigOption "service_type" }}'
+      nodePort: 'repl{{ ConfigOption "service_node_port" }}'
     ingress:
       enabled: 'repl{{ ConfigOptionEquals "ingress_enabled" "1" }}'
       host: 'repl{{ ConfigOption "ingress_host" }}'
