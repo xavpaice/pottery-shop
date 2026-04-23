@@ -14,9 +14,9 @@ spec:
           required: true
         - name: SESSION_SECRET
           title: Session Secret
-          help_text: Secret used to sign session cookies. Auto-generated on first install.
           type: password
           default: 'repl{{ RandomString 64 }}'
+          hidden: true
 
     - name: application
       title: Application
