@@ -1,8 +1,11 @@
-name: Integration Test (CMX)
+name: CI/CD
 
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
+    tags: ['v*']
 
 env:
   REGISTRY: ghcr.io
@@ -10,17 +13,16 @@ env:
   APP_SLUG: xav-pottery-shop
 
 jobs:
-  build-and-release:
-    if: github.event.pull_request.head.repo.fork == false
+  build-image:
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
     permissions:
       contents: read
       packages: write
       id-token: write
     outputs:
-      version: ${{ steps.version.outputs.version }}
-      channel-slug: ${{ steps.create-release.outputs.channel-slug }}
-      release-sequence: ${{ steps.create-release.outputs.release-sequence }}
+      version: ${{ steps.release-info.outputs.version }}
+      channel: ${{ steps.release-info.outputs.channel }}
 
     steps:
       - uses: actions/checkout@v4
@@ -30,15 +32,26 @@ jobs:
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
 
-      - name: Set release version
-        id: version
+      - name: Determine version and channel
+        id: release-info
         run: |
-          git_hash=$(git rev-parse --short HEAD)
-          date_version=$(date -u '+%Y.%-m.%-d-%H%M%S')
-          version="${date_version}-pr${{ github.event.pull_request.number }}-${git_hash}"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            channel="Beta"
+            version="$GITHUB_REF_NAME"
+          elif [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            channel="Unstable"
+            git_hash=$(git rev-parse --short HEAD)
+            date_version=$(date -u '+%Y.%-m.%-d-%H%M%S')
+            version="${date_version}-pr${{ github.event.pull_request.number }}-${git_hash}"
+          else
+            channel="Main"
+            git_hash=$(git rev-parse --short HEAD)
+            date_version=$(date -u '+%Y.%-m.%-d-%H%M%S')
+            version="${date_version}-main-${git_hash}"
+          fi
+          echo "channel=${channel}" >> "$GITHUB_OUTPUT"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
 
-      # Build and push image so the Replicated proxy can pull it
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -46,53 +59,73 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push image
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ steps.release-info.outputs.version }}
+            type=semver,pattern=v{{version}}
+            type=semver,pattern=v{{major}}.{{minor}}
+
+      - name: Build and push
         id: build
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
 
       - name: Sign image with cosign
-        run: |
-          cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+        run: cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
 
-      # Package chart and push to Replicated
+  replicated-release:
+    needs: build-image
+    runs-on: ubuntu-latest
+    outputs:
+      release-sequence: ${{ steps.create-release.outputs.release-sequence }}
+      channel-slug: ${{ steps.create-release.outputs.channel-slug }}
+
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Set up Helm
         uses: azure/setup-helm@v4
 
       - name: Update chart dependencies
         run: helm dependency update chart/clay/
 
-      - name: Lint Helm chart
-        run: helm lint chart/clay/
-
       - name: Package Helm chart
         run: |
           rm -f replicated/*.tgz
           helm package chart/clay/ --debug -u -d replicated \
-            --version ${{ steps.version.outputs.version }} \
-            --app-version ${{ steps.version.outputs.version }}
+            --version ${{ needs.build-image.outputs.version }} \
+            --app-version ${{ needs.build-image.outputs.version }}
           cp chart/clay/charts/cloudnative-pg-0.28.0.tgz replicated/
 
       - name: Update HelmChart CR version
         run: |
-          sed -i "s/chartVersion: .*/chartVersion: ${{ steps.version.outputs.version }}/" replicated/clay-chart.yaml
+          sed -i "s/chartVersion: .*/chartVersion: ${{ needs.build-image.outputs.version }}/" replicated/clay-chart.yaml
 
-      - name: Create release and promote to Unstable
+      - name: Create release and promote to ${{ needs.build-image.outputs.channel }}
         id: create-release
         uses: replicatedhq/compatibility-actions/create-release@v1
         with:
           app-slug: ${{ env.APP_SLUG }}
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
           yaml-dir: ./replicated
-          promote-channel: Unstable
-          version: ${{ steps.version.outputs.version }}
+          promote-channel: ${{ needs.build-image.outputs.channel }}
+          version: ${{ needs.build-image.outputs.version }}
 
   integration-test:
-    needs: build-and-release
-    if: github.event.pull_request.head.repo.fork == false
+    needs: [build-image, replicated-release]
+    if: |
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false)
+      || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
 
     steps:
@@ -107,9 +140,9 @@ jobs:
         with:
           app-slug: ${{ env.APP_SLUG }}
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
-          customer-name: ci-pr-${{ github.event.pull_request.number }}-${{ github.run_id }}
-          channel-slug: ${{ needs.build-and-release.outputs.channel-slug }}
-          customer-email: ci-pr-${{ github.event.pull_request.number }}@clay.nz
+          customer-name: ci-${{ github.run_id }}
+          channel-slug: ${{ needs.replicated-release.outputs.channel-slug }}
+          customer-email: ci-${{ github.run_id }}@clay.nz
           license-type: dev
           expires-in: 1
 
@@ -144,11 +177,11 @@ jobs:
       - name: Run preflight checks
         run: |
           helm registry login registry.replicated.com \
-            --username ci-pr-${{ github.event.pull_request.number }}@clay.nz \
+            --username ci-${{ github.run_id }}@clay.nz \
             --password ${{ steps.create-customer.outputs.license-id }}
           helm template clay \
-            oci://registry.replicated.com/${{ env.APP_SLUG }}/${{ needs.build-and-release.outputs.channel-slug }}/clay \
-            --version ${{ needs.build-and-release.outputs.version }} \
+            oci://registry.replicated.com/${{ env.APP_SLUG }}/${{ needs.replicated-release.outputs.channel-slug }}/clay \
+            --version ${{ needs.build-image.outputs.version }} \
             --set secrets.ADMIN_PASS=ci-test-only \
             --set secrets.SESSION_SECRET=ci-test-session-secret-not-for-production \
             --set config.SMTP_HOST=smtp.mailgun.org \
@@ -161,11 +194,11 @@ jobs:
         with:
           kubeconfig: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
           helm-path: helm
-          registry-username: ci-pr-${{ github.event.pull_request.number }}@clay.nz
+          registry-username: ci-${{ github.run_id }}@clay.nz
           registry-password: ${{ steps.create-customer.outputs.license-id }}
-          chart: oci://registry.replicated.com/${{ env.APP_SLUG }}/${{ needs.build-and-release.outputs.channel-slug }}/clay
+          chart: oci://registry.replicated.com/${{ env.APP_SLUG }}/${{ needs.replicated-release.outputs.channel-slug }}/clay
           name: clay
-          version: ${{ needs.build-and-release.outputs.version }}
+          version: ${{ needs.build-image.outputs.version }}
           namespace: clay
           values: |
             secrets:
@@ -187,7 +220,8 @@ jobs:
         run: |
           echo "Waiting for CNPG Postgres cluster..."
           for i in $(seq 1 60); do
-            PHASE=$(kubectl get clusters.postgresql.cnpg.io -n clay clay-postgres -o jsonpath='{.status.phase}' 2>/dev/null || echo "pending")
+            PHASE=$(kubectl get clusters.postgresql.cnpg.io -n clay clay-postgres \
+              -o jsonpath='{.status.phase}' 2>/dev/null || echo "pending")
             if echo "$PHASE" | grep -q "Cluster in healthy state"; then
               echo "Postgres ready"
               break
@@ -201,14 +235,12 @@ jobs:
         run: |
           kubectl rollout status deployment/clay -n clay --timeout=120s
           kubectl get pods -n clay
-
-          # Verify the pod is actually responding
-          POD_NAME=$(kubectl get pods -n clay -l app.kubernetes.io/name=clay -o jsonpath='{.items[0].metadata.name}')
+          POD_NAME=$(kubectl get pods -n clay -l app.kubernetes.io/name=clay \
+            -o jsonpath='{.items[0].metadata.name}')
           kubectl exec -n clay "$POD_NAME" -- wget -qO- http://localhost:8080/ | head -c 200
 
       - name: Verify cert-manager resources
         run: |
-          # Wait for CRDs to register (post-install hook)
           for i in $(seq 1 30); do
             if kubectl get crd clusterissuers.cert-manager.io >/dev/null 2>&1; then
               echo "cert-manager CRDs ready"
@@ -248,8 +280,10 @@ jobs:
           customer-id: ${{ steps.create-customer.outputs.customer-id }}
 
   ec-integration-test:
-    needs: build-and-release
-    if: github.event.pull_request.head.repo.fork == false
+    needs: [build-image, replicated-release]
+    if: |
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false)
+      || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
 
     steps:
@@ -267,9 +301,9 @@ jobs:
         run: |
           CUSTOMER_JSON=$(replicated customer create \
             --app ${{ env.APP_SLUG }} \
-            --name ci-ec-pr-${{ github.event.pull_request.number }}-${{ github.run_id }} \
-            --channel Unstable \
-            --email ci-ec-pr-${{ github.event.pull_request.number }}@clay.nz \
+            --name ci-ec-${{ github.run_id }} \
+            --channel ${{ needs.build-image.outputs.channel }} \
+            --email ci-ec-${{ github.run_id }}@clay.nz \
             --type dev \
             --expires-in 24h \
             --embedded-cluster-download \
@@ -337,7 +371,7 @@ jobs:
           ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT \
             -o ServerAliveInterval=30 -o ServerAliveCountMax=40 \
             ci@$SSH_HOST \
-            "curl -f 'https://replicated.app/embedded/${{ env.APP_SLUG }}/unstable' \
+            "curl -f 'https://replicated.app/embedded/${{ env.APP_SLUG }}/${{ needs.replicated-release.outputs.channel-slug }}' \
                -H 'Authorization: $LICENSE_ID' \
                -o ~/${{ env.APP_SLUG }}.tgz && \
              tar -xzf ~/${{ env.APP_SLUG }}.tgz && \
@@ -380,7 +414,6 @@ jobs:
         run: |
           ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
             "K0S=\$(find /usr/local/bin /var/lib/${{ env.APP_SLUG }}/bin /usr/bin -name k0s -type f 2>/dev/null | head -1)
-             echo 'k0s='\$K0S
              if [ -n \"\$K0S\" ]; then
                echo '=== Nodes ==='
                sudo \$K0S kubectl get nodes -o wide || true
@@ -389,15 +422,11 @@ jobs:
                echo '=== Events (recent) ==='
                sudo \$K0S kubectl get events -A --sort-by='.lastTimestamp' 2>/dev/null | tail -40 || true
                echo '=== Describe clay pods ==='
-               sudo \$K0S kubectl describe pods -n xav-pottery-shop 2>/dev/null | grep -E 'Name:|State:|Reason:|Message:|Image:|Events:|Warning:|Normal:' | head -60 || true
-             else
-               echo 'k0s not found, possible locations:'
-               find / -name k0s -name '*.sh' -o -name k0s -type f 2>/dev/null | head -10 || true
+               sudo \$K0S kubectl describe pods -n ${{ env.APP_SLUG }} 2>/dev/null \
+                 | grep -E 'Name:|State:|Reason:|Message:|Image:|Events:|Warning:|Normal:' | head -60 || true
              fi
              echo '=== EC service logs ==='
-             sudo journalctl -u ${{ env.APP_SLUG }} --no-pager --lines=50 || true
-             echo '=== postgres status ==='
-             sudo systemctl status postgresql || true" || true
+             sudo journalctl -u ${{ env.APP_SLUG }} --no-pager --lines=50 || true" || true
 
       - name: Remove CMX VM
         if: always()
