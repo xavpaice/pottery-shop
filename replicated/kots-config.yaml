@@ -100,8 +100,9 @@ spec:
               title: ClusterIP (no external access)
         - name: service_node_port
           title: NodePort Number
-          help_text: Port number in the 30000-32767 range. Leave blank to auto-assign.
+          help_text: Port number in the 30000-32767 range.
           type: text
+          default: "30900"
           when: 'repl{{ ConfigOptionEquals "service_type" "NodePort" }}'
 
     - name: ingress
