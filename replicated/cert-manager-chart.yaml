@@ -17,7 +17,7 @@ spec:
 
   values:
     installCRDs: true
-    imageRegistry: 'repl{{ ReplicatedImageRegistry "proxy.clay.nz/proxy/xav-pottery-shop/quay.io" true }}'
+    imageRegistry: repl{{ ReplicatedImageRegistry (HelmValue ".Values.image.registry") }}
     global:
       imagePullSecrets:
         - name: enterprise-pull-secret
