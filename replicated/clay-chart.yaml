@@ -59,15 +59,13 @@ spec:
     cloudnative-pg:
       enabled: false
     cert-manager:
-      imageRegistry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.cert-manager.imageRegistry") true }}'
+      enabled: false
   # builder values are static and used only by the Replicated airgap builder.
   # They ensure helm template renders every conditional image path so the
   # builder can scan and bundle all images that could possibly be used.
   builder:
     postgres:
       managed: true
-    cert-manager:
-      enabled: true
     secrets:
       ADMIN_PASS: dummy
       SESSION_SECRET: dummy

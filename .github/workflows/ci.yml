@@ -106,6 +106,7 @@ jobs:
             --version ${{ needs.build-image.outputs.version }} \
             --app-version ${{ needs.build-image.outputs.version }}
           cp chart/clay/charts/cloudnative-pg-0.28.0.tgz replicated/
+          cp chart/clay/charts/cert-manager-v1.20.2.tgz replicated/
 
       - name: Update HelmChart CR version
         run: |

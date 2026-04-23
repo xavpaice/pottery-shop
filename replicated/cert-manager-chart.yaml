@@ -1,0 +1,27 @@
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: cert-manager
+spec:
+  chart:
+    name: cert-manager
+    chartVersion: v1.20.2
+  weight: 5
+
+  helmInstallFlags:
+    - --wait
+    - --timeout=5m
+  helmUpgradeFlags:
+    - --wait
+    - --timeout=5m
+
+  values:
+    installCRDs: true
+    imageRegistry: 'repl{{ ReplicatedImageRegistry "proxy.clay.nz/proxy/xav-pottery-shop/quay.io" true }}'
+    global:
+      imagePullSecrets:
+        - name: enterprise-pull-secret
+
+  builder:
+    installCRDs: true
+    imageRegistry: proxy.clay.nz/proxy/xav-pottery-shop/quay.io
