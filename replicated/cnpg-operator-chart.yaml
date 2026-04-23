@@ -1,0 +1,24 @@
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: cnpg-operator
+spec:
+  chart:
+    name: cloudnative-pg
+    chartVersion: 0.28.0
+  weight: 5
+  helmInstallFlags:
+    - --wait
+    - --timeout=5m
+  helmUpgradeFlags:
+    - --wait
+    - --timeout=5m
+  values:
+    image:
+      repository: 'repl{{ ReplicatedImageName (HelmValue ".Values.image.repository") true }}'
+    imagePullSecrets:
+      - name: enterprise-pull-secret
+  builder:
+    image:
+      repository: ghcr.io/cloudnative-pg/cloudnative-pg
+      tag: "1.29.0"

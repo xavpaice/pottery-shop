@@ -6,6 +6,7 @@ spec:
   chart:
     name: clay
     chartVersion: 0.1.0
+  weight: 10
 
   helmInstallFlags:
     - "--timeout=20m"
@@ -53,8 +54,7 @@ spec:
         registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.webhookWait.image.registry") true }}'
         repository: 'repl{{ ReplicatedImageRepository (HelmValue ".Values.webhookWait.image.repository") true }}'
     cloudnative-pg:
-      image:
-        repository: 'repl{{ ReplicatedImageName (HelmValue ".Values.cloudnative-pg.image.repository") true }}'
+      enabled: false
     cert-manager:
       imageRegistry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.cert-manager.imageRegistry") true }}'
   # builder values are static and used only by the Replicated airgap builder.
@@ -63,8 +63,6 @@ spec:
   builder:
     postgres:
       managed: true
-    cloudnative-pg:
-      enabled: true
     cert-manager:
       enabled: true
     secrets:

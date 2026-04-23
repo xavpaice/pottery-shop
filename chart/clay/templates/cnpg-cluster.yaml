@@ -5,9 +5,6 @@ metadata:
   name: {{ include "clay.fullname" . }}-postgres
   labels:
     {{- include "clay.labels" . | nindent 4 }}
-  annotations:
-    "helm.sh/hook": post-install
-    "helm.sh/hook-weight": "-10"
 spec:
   imageName: {{ .Values.postgres.cluster.imageName }}
   imagePullSecrets:

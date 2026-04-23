@@ -74,6 +74,7 @@ jobs:
           helm package chart/clay/ --debug -u -d replicated \
             --version ${{ steps.version.outputs.version }} \
             --app-version ${{ steps.version.outputs.version }}
+          cp chart/clay/charts/cloudnative-pg-0.28.0.tgz replicated/
 
       - name: Update HelmChart CR version
         run: |
@@ -349,15 +350,30 @@ jobs:
 
       - name: Verify installation
         run: |
-          ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT ci@$SSH_HOST \
+          ssh -i /tmp/ci_key -o StrictHostKeyChecking=no -p $SSH_PORT \
+            -o ServerAliveInterval=30 -o ServerAliveCountMax=20 \
+            ci@$SSH_HOST \
             "K0S=\$(find /usr/local/bin /var/lib/${{ env.APP_SLUG }}/bin /usr/bin -name k0s -type f 2>/dev/null | head -1)
-             if [ -n \"\$K0S\" ]; then
-               sudo \$K0S kubectl get nodes
-               sudo \$K0S kubectl get pods -A
-             else
-               echo 'k0s not found, listing possible locations:'
-               find / -name k0s -type f 2>/dev/null | head -10 || true
-             fi"
+             if [ -z \"\$K0S\" ]; then
+               echo 'k0s not found'; exit 1
+             fi
+             NS=${{ env.APP_SLUG }}
+             echo '=== Nodes ==='
+             sudo \$K0S kubectl get nodes
+             echo '=== Waiting for clay deployment ==='
+             sudo \$K0S kubectl rollout status deployment/clay -n \$NS --timeout=300s
+             echo '=== Waiting for Postgres cluster ==='
+             for i in \$(seq 1 60); do
+               PHASE=\$(sudo \$K0S kubectl get clusters.postgresql.cnpg.io -n \$NS clay-postgres \
+                 -o jsonpath='{.status.phase}' 2>/dev/null || echo 'pending')
+               if echo \"\$PHASE\" | grep -q 'Cluster in healthy state'; then
+                 echo 'Postgres ready'; break
+               fi
+               printf '.'
+               sleep 5
+             done
+             echo ''
+             sudo \$K0S kubectl get pods -A"
 
       - name: Collect debug info on failure
         if: failure()
