@@ -4,14 +4,16 @@ metadata:
   name: {{ include "clay.fullname" . }}
   labels:
     {{- include "clay.labels" . | nindent 4 }}
+{{- $serviceType := .Values.service.type }}
+{{- if include "clay.isTrue" .Values.ingress.enabled }}{{- $serviceType = "ClusterIP" }}{{- end }}
 spec:
-  type: {{ .Values.service.type }}
+  type: {{ $serviceType }}
   selector:
     {{- include "clay.selectorLabels" . | nindent 4 }}
   ports:
     - port: {{ .Values.service.port }}
       targetPort: {{ .Values.containerPort }}
       protocol: TCP
-      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePort }}
+      {{- if and (eq $serviceType "NodePort") .Values.service.nodePort }}
       nodePort: {{ .Values.service.nodePort }}
       {{- end }}

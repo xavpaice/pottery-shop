@@ -88,9 +88,10 @@ spec:
       items:
         - name: service_type
           title: Service Type
-          help_text: NodePort exposes the app on a port on each node (recommended for Embedded Cluster). LoadBalancer provisions a cloud load balancer.
+          help_text: NodePort exposes the app on a port on each node (recommended for Embedded Cluster). LoadBalancer provisions a cloud load balancer. When Ingress is enabled this setting is ignored.
           type: select_one
           default: NodePort
+          when: 'repl{{ ConfigOptionEquals "ingress_enabled" "0" }}'
           items:
             - name: NodePort
               title: NodePort
@@ -103,7 +104,7 @@ spec:
           help_text: Port number in the 30000-32767 range.
           type: text
           default: "30900"
-          when: 'repl{{ ConfigOptionEquals "service_type" "NodePort" }}'
+          when: 'repl{{ and (ConfigOptionEquals "ingress_enabled" "0") (ConfigOptionEquals "service_type" "NodePort") }}'
 
     - name: ingress
       title: Ingress & TLS
