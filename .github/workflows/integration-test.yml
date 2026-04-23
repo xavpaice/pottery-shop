@@ -337,6 +337,31 @@ jobs:
                 value: ci@clay.nz
           EOF
 
+      - name: Wait for EC bundle to be built
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+          REPLICATED_APP: ${{ env.APP_SLUG }}
+        run: |
+          SEQUENCE="${{ needs.build-and-release.outputs.release-sequence }}"
+          echo "Waiting for EC bundle for release sequence ${SEQUENCE}..."
+          for i in $(seq 1 30); do
+            READY=$(replicated release ls --output json 2>/dev/null | \
+              jq --argjson seq "${SEQUENCE}" \
+                '[.[] | select(.sequence == $seq)
+                      | select(.embeddedClusterArtifacts != null)
+                      | select((.embeddedClusterArtifacts | length) > 0)] | length')
+            if [ "${READY}" = "1" ]; then
+              echo "EC bundle ready after ${i} checks"
+              break
+            fi
+            if [ "${i}" = "30" ]; then
+              echo "Timed out waiting for EC bundle after 15 minutes"
+              exit 1
+            fi
+            echo "Attempt ${i}/30: not ready, waiting 30s..."
+            sleep 30
+          done
+
       - name: Install Embedded Cluster
         env:
           LICENSE_ID: ${{ steps.create-customer.outputs.license-id }}
