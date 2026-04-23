@@ -364,17 +364,6 @@ jobs:
                 value: ci@clay.nz
           EOF
 
-      - name: Wait for EC bundle to be built
-        env:
-          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
-          REPLICATED_APP: ${{ env.APP_SLUG }}
-        run: |
-          # TODO: replace sleep with a proper poll once we know the right
-          # CLI command / API field to check EC bundle readiness for a
-          # specific release sequence.
-          echo "Waiting 90s for EC bundle to be built for sequence ${{ needs.replicated-release.outputs.release-sequence }}..."
-          sleep 90
-
       - name: Install Embedded Cluster
         env:
           LICENSE_ID: ${{ steps.create-customer.outputs.license-id }}
