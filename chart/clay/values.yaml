@@ -96,7 +96,9 @@ features:
   firingLogs:
     enabled: true   # Seller kiln-session tracking (firing logs + temperature readings)
 
-# -- Postgres configuration (managed via CNPG or external DSN)
+# -- Postgres: two modes:
+#   managed (default) — CloudNativePG operator + cluster run in-cluster.
+#   external          — set managed: false and provide external.dsn.
 postgres:
   managed: true
   cluster:
@@ -125,27 +127,16 @@ webhookWait:
     repository: proxy/xav-pottery-shop/index.docker.io/alpine/k8s
     tag: "1.35.3"
 
-# -- Subchart operator toggles
-#
-# cloudnative-pg.enabled: install the CNPG operator as a bundled subchart.
-#   Independent of postgres.managed — postgres.managed controls whether a CNPG Cluster CR
-#   is rendered; cloudnative-pg.enabled controls whether the CNPG operator itself is bundled.
-#   Set to false when the CNPG operator is already installed in the cluster (pre-installed mode).
-#   Installs into the same namespace as this release (no namespace override). (D-01, D-02)
-#
 cloudnative-pg:
-  enabled: true   # -- default: true (full umbrella install bundles the operator)
   image:
     repository: proxy.clay.nz/proxy/xav-pottery-shop/ghcr.io/cloudnative-pg/cloudnative-pg
   imagePullSecrets:
     - name: enterprise-pull-secret
 
-# -- cert-manager.enabled: install cert-manager as a bundled subchart.
-#   Set to false when cert-manager is already installed in the cluster (pre-installed mode).
-#   Installs into the same namespace as this release (no namespace override). (D-01)
-#
+# -- cert-manager: install cert-manager as a bundled subchart.
+#   Set enabled: false when cert-manager is already installed in the cluster.
 cert-manager:
-  enabled: true   # -- default: true (full umbrella install bundles the operator)
+  enabled: true
   installCRDs: true  # -- install cert-manager CRDs (ClusterIssuer, Certificate, etc.)
   imageRegistry: proxy.clay.nz/proxy/xav-pottery-shop/quay.io
   global:

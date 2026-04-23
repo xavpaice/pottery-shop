@@ -1,4 +1,4 @@
-{{- if (index .Values "cloudnative-pg" "enabled") }}
+{{- if include "clay.cnpgBundled" . }}
 apiVersion: batch/v1
 kind: Job
 metadata:

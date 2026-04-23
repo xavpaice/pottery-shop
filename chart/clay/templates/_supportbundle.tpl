@@ -153,7 +153,7 @@ spec:
           - pass:
               message: Clay application deployment is healthy
 
-    {{- if (index .Values "cloudnative-pg" "enabled") }}
+    {{- if include "clay.cnpgBundled" . }}
     - deploymentStatus:
         checkName: CNPG operator deployment
         name: {{ include "clay.fullname" . }}-cloudnative-pg

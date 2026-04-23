@@ -188,26 +188,15 @@ helm install clay ./chart/clay -n clay --create-namespace \
 
 > **Note:** First install with bundled operators takes ~30-60 seconds longer than usual while webhook-wait Jobs confirm the operators are ready.
 
-#### Pre-installed operators
+#### Pre-installed cert-manager
 
-If the CNPG operator and/or cert-manager are already running in your cluster, disable the bundled subcharts to avoid installing duplicate operator instances:
+If cert-manager is already running in your cluster, disable the bundled subchart:
 
 ```bash
-# Inline flags
 helm install clay ./chart/clay -n clay --create-namespace \
-  --set cloudnative-pg.enabled=false \
   --set cert-manager.enabled=false \
   --set secrets.ADMIN_PASS=your-secure-password \
   --set secrets.SESSION_SECRET=$(openssl rand -hex 32)
-```
-
-Or in a values file:
-
-```yaml
-cloudnative-pg:
-  enabled: false
-cert-manager:
-  enabled: false
 ```
 
 #### External Postgres (no CNPG)
@@ -238,7 +227,6 @@ Key `values.yaml` settings to customise:
 | `postgres.external.dsn` | `""` | Required when `managed: false` |
 | `postgres.cluster.instances` | `1` | CNPG cluster replica count |
 | `postgres.cluster.storage.size` | `5Gi` | CNPG PVC size |
-| `cloudnative-pg.enabled` | `true` | `true` = bundle CNPG operator as subchart; `false` = use pre-installed operator |
 | `cert-manager.enabled` | `true` | `true` = bundle cert-manager as subchart; `false` = use pre-installed cert-manager |
 | `ingress.enabled` | `false` | Enable ingress resource |
 | `ingress.host` | `""` | Hostname (**required** when `ingress.enabled: true`) |

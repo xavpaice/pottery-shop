@@ -204,14 +204,14 @@ else
          "helm lint exited ${LINT_BUNDLED_EXIT}. Output: ${LINT_BUNDLED}"
 fi
 
-LINT_PREINSTALLED=$("${HELM}" lint "${CHART_DIR}" -f "${CHART_DIR}/ci/ci-preinstalled-values.yaml" 2>&1 || true)
-LINT_PREINSTALLED_EXIT=$?
+LINT_KOTS_MODE=$("${HELM}" lint "${CHART_DIR}" -f "${CHART_DIR}/ci/ci-preinstalled-values.yaml" 2>&1 || true)
+LINT_KOTS_MODE_EXIT=$?
 
-if [ ${LINT_PREINSTALLED_EXIT} -eq 0 ]; then
-    pass "G-08b CI-02: helm lint with ci-preinstalled-values.yaml exits 0"
+if [ ${LINT_KOTS_MODE_EXIT} -eq 0 ]; then
+    pass "G-08b CI-02: helm lint with KOTS operator-separate mode exits 0"
 else
-    fail "G-08b CI-02: helm lint with ci-preinstalled-values.yaml exits 0" \
-         "helm lint exited ${LINT_PREINSTALLED_EXIT}. Output: ${LINT_PREINSTALLED}"
+    fail "G-08b CI-02: helm lint with KOTS operator-separate mode exits 0" \
+         "helm lint exited ${LINT_KOTS_MODE_EXIT}. Output: ${LINT_KOTS_MODE}"
 fi
 
 LINT_EXTERNALDB=$("${HELM}" lint "${CHART_DIR}" -f "${CHART_DIR}/ci/ci-external-db-values.yaml" 2>&1 || true)
@@ -425,7 +425,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# G-16 / WBHK-04: cloudnative-pg.enabled=false -> no CNPG webhook-wait Job
+# G-16 / WBHK-04: KOTS operator-separate mode (cloudnative-pg.enabled=false) -> no CNPG webhook-wait Job
 # ---------------------------------------------------------------------------
 OUTPUT_WH_16=$("${HELM}" template release-test "${CHART_DIR}" \
   "${REQUIRED[@]}" \
@@ -604,24 +604,24 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# G-25 / CI-02: pre-installed mode — Cluster CR renders, operator Deployments absent
+# G-25 / CI-02: KOTS operator-separate mode — Cluster CR renders, operator Deployment absent
 # ---------------------------------------------------------------------------
 OUTPUT_G25=$("${HELM}" template release-test "${CHART_DIR}" \
   "${REQUIRED[@]}" \
   --values "${CHART_DIR}/ci/ci-preinstalled-values.yaml" 2>&1)
 
 if grep -q "^kind: Cluster" <<< "${OUTPUT_G25}"; then
-    pass "G-25a CI-02: pre-installed mode renders CNPG Cluster CR (postgres.managed=true)"
+    pass "G-25a CI-02: KOTS operator-separate mode renders CNPG Cluster CR (postgres.managed=true)"
 else
-    fail "G-25a CI-02: pre-installed mode renders CNPG Cluster CR" \
+    fail "G-25a CI-02: KOTS operator-separate mode renders CNPG Cluster CR" \
          "Expected 'kind: Cluster' in output"
 fi
 
 if grep -q "release-test-cloudnative-pg" <<< "${OUTPUT_G25}"; then
-    fail "G-25b CI-02: pre-installed mode renders no CNPG operator Deployment" \
+    fail "G-25b CI-02: KOTS operator-separate mode renders no CNPG operator Deployment" \
          "Found 'release-test-cloudnative-pg' in output -- should not appear when cloudnative-pg.enabled=false"
 else
-    pass "G-25b CI-02: pre-installed mode renders no CNPG operator Deployment (cloudnative-pg absent)"
+    pass "G-25b CI-02: KOTS operator-separate mode renders no CNPG operator Deployment (cloudnative-pg absent)"
 fi
 
 # ---------------------------------------------------------------------------
@@ -646,24 +646,24 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# G-27 / CI-04: mixed mode — CNPG operator Deployment renders, cert-manager absent
+# G-27 / CI-04: CNPG bundled, cert-manager separate — operator Deployment renders, cert-manager absent
 # ---------------------------------------------------------------------------
 OUTPUT_G27=$("${HELM}" template release-test "${CHART_DIR}" \
   "${REQUIRED[@]}" \
   --values "${CHART_DIR}/ci/ci-mixed-values.yaml" 2>&1)
 
 if grep -q "name: release-test-cloudnative-pg" <<< "${OUTPUT_G27}"; then
-    pass "G-27a CI-04: mixed mode renders CNPG operator Deployment (cloudnative-pg.enabled=true)"
+    pass "G-27a CI-04: CNPG bundled renders CNPG operator Deployment"
 else
-    fail "G-27a CI-04: mixed mode renders CNPG operator Deployment" \
+    fail "G-27a CI-04: CNPG bundled renders CNPG operator Deployment" \
          "Expected 'name: release-test-cloudnative-pg' in output"
 fi
 
 if grep -q "release-test-cert-manager" <<< "${OUTPUT_G27}"; then
-    fail "G-27b CI-04: mixed mode renders no cert-manager operator Deployment" \
+    fail "G-27b CI-04: CNPG bundled renders no cert-manager operator Deployment" \
          "Found 'release-test-cert-manager' in output -- should not appear when cert-manager.enabled=false"
 else
-    pass "G-27b CI-04: mixed mode renders no cert-manager operator Deployment (cert-manager absent)"
+    pass "G-27b CI-04: CNPG bundled renders no cert-manager operator Deployment (cert-manager absent)"
 fi
 
 # ---------------------------------------------------------------------------
