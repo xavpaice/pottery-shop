@@ -46,16 +46,13 @@ spec:
         secretName: 'repl{{ ConfigOption "tls_secret_name" }}'
     clay:
       image:
-        registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.clay.image.registry") true }}'
-        repository: 'repl{{ ReplicatedImageRepository (HelmValue ".Values.clay.image.repository") true }}'
+        registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.clay.image.registry") }}'
     waitForPostgres:
       image:
-        registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.waitForPostgres.image.registry") true }}'
-        repository: 'repl{{ ReplicatedImageRepository (HelmValue ".Values.waitForPostgres.image.repository") true }}'
+        registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.waitForPostgres.image.registry") }}'
     webhookWait:
       image:
-        registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.webhookWait.image.registry") true }}'
-        repository: 'repl{{ ReplicatedImageRepository (HelmValue ".Values.webhookWait.image.repository") true }}'
+        registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.webhookWait.image.registry") }}'
     cloudnative-pg:
       enabled: false
     cert-manager:
