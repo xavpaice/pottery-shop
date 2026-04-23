@@ -18,7 +18,7 @@ fullnameOverride: ""
 service:
   type: NodePort
   port: 80
-  nodePort: ""  # leave empty to let Kubernetes assign; set e.g. 30080 to pin the port
+  nodePort: 30900
 
 ingress:
   enabled: false
