@@ -33,6 +33,7 @@ ingress:
       production: false       # letsencrypt: false = staging ACME endpoint
 
 config:
+  CUSTOM_LOGO_DATA: ""
   PORT: "8080"
   BASE_URL: "https://clay.nz"
   ADMIN_USER: "admin"

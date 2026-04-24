@@ -18,6 +18,15 @@ spec:
           default: 'repl{{ RandomString 64 }}'
           hidden: true
 
+    - name: branding
+      title: Branding
+      items:
+        - name: custom_logo
+          title: Custom Logo
+          help_text: Upload a logo image to replace the default Clay.nz logo in the site header.
+          type: file
+          when: 'repl{{ LicenseFieldValue "enableCustomLogo" | ParseBool }}'
+
     - name: application
       title: Application
       items:

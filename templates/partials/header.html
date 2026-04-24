@@ -17,7 +17,7 @@
     <header class="site-header">
         <div class="container header-inner">
             <a href="/" class="logo">
-                <img src="/static/logo-horizontal-light.svg" alt="Clay.nz" class="logo-img">
+                <img src="{{if customLogoEnabled}}/custom-logo{{else}}/static/logo-horizontal-light.svg{{end}}" alt="Clay.nz" class="logo-img">
             </a>
             <nav class="main-nav">
                 <a href="/">Shop</a>
