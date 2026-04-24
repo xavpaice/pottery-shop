@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"html/template"
 	"log"
@@ -37,6 +38,18 @@ func main() {
 	// Ensure directories exist
 	os.MkdirAll(uploadDir, 0755)
 	os.MkdirAll(thumbDir, 0755)
+
+	// Write custom logo from KOTS file config (base64-encoded) if provided
+	customLogoPath := filepath.Join(uploadDir, "custom-logo")
+	if data := os.Getenv("CUSTOM_LOGO_DATA"); data != "" {
+		if decoded, err := base64.StdEncoding.DecodeString(data); err == nil {
+			if err := os.WriteFile(customLogoPath, decoded, 0644); err != nil {
+				log.Printf("warning: could not write custom logo: %v", err)
+			}
+		} else {
+			log.Printf("warning: failed to decode CUSTOM_LOGO_DATA: %v", err)
+		}
+	}
 
 	// Validate license before proceeding
 	sdkService := envOr("REPLICATED_SDK_SERVICE", "clay-sdk")
@@ -86,9 +99,14 @@ func main() {
 		}
 	}
 
+	// Pre-declared so the funcMap closure below can capture the variable;
+	// assigned after SDK setup further down.
+	var customLogoChecker *metrics.FeatureChecker
+
 	// Templates
 	funcMap := template.FuncMap{
-		"lower": strings.ToLower,
+		"lower":             strings.ToLower,
+		"customLogoEnabled": func() bool { return customLogoChecker != nil && customLogoChecker.Enabled() },
 	}
 
 	publicTemplates := template.Must(
@@ -138,6 +156,9 @@ func main() {
 	envFallback := envOr("FEATURE_FIRING_LOGS_ENABLED", "true") != "false"
 	firingLogsChecker := metrics.NewFeatureChecker(sdkService, "enableFiringLogs", envFallback, 5*time.Minute)
 
+	// Dynamic license check for custom logo -- polls every 5 minutes
+	customLogoChecker = metrics.NewFeatureChecker(sdkService, "enableCustomLogo", false, 5*time.Minute)
+
 	authHandler := handlers.NewAuthHandler(sellerStore, store, sessionMgr, publicTemplates, config, uploadDir, thumbDir)
 	authHandler.FiringLogs = firingLogsChecker
 
@@ -150,6 +171,21 @@ func main() {
 	// Static files
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	mux.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadDir))))
+
+	// Custom logo -- served only when the enableCustomLogo license field is true
+	mux.HandleFunc("/custom-logo", func(w http.ResponseWriter, r *http.Request) {
+		if !customLogoChecker.Enabled() {
+			http.NotFound(w, r)
+			return
+		}
+		data, err := os.ReadFile(customLogoPath)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", http.DetectContentType(data))
+		w.Write(data)
+	})
 
 	// Health endpoints (registered before / catch-all)
 	mux.HandleFunc("/healthz", handlers.Healthz)
@@ -273,6 +309,7 @@ func main() {
 	go metricsReporter.Run(context.Background())
 	go updateChecker.Run(context.Background())
 	go firingLogsChecker.Run(context.Background())
+	go customLogoChecker.Run(context.Background())
 
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("Clay.nz starting on %s", addr)

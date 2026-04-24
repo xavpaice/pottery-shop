@@ -20,6 +20,7 @@ spec:
       SMTP_USER: 'repl{{ ConfigOption "SMTP_USER" }}'
       SMTP_PASS: 'repl{{ ConfigOption "SMTP_PASS" }}'
     config:
+      CUSTOM_LOGO_DATA: 'repl{{ ConfigOption "custom_logo" }}'
       ORDER_EMAIL: 'repl{{ ConfigOption "ORDER_EMAIL" }}'
       BASE_URL: 'repl{{ ConfigOption "BASE_URL" }}'
       ADMIN_USER: 'repl{{ ConfigOption "ADMIN_USER" }}'
