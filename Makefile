@@ -224,9 +224,10 @@ cmx-test:
 		helm registry logout registry.replicated.com 2>/dev/null || true; \
 		helm dependency update chart/clay/; \
 		helm lint chart/clay/; \
-		rm -f replicated/clay-$$VERSION.tgz; \
+		rm -f replicated/*.tgz; \
 		helm package chart/clay/ -d replicated \
 			--version $$VERSION --app-version $$VERSION; \
+		cp chart/clay/charts/cloudnative-pg-*.tgz replicated/; \
 		cp chart/clay/charts/cert-manager-*.tgz replicated/; \
 		\
 		echo "--- Creating Replicated release on Unstable ---"; \
@@ -366,9 +367,10 @@ ec-test:
 		\
 		echo "--- Packaging chart and creating release ---"; \
 		helm dependency update chart/clay/; \
-		rm -f replicated/clay-$$VERSION.tgz; \
+		rm -f replicated/*.tgz; \
 		helm package chart/clay/ -d replicated \
 			--version $$VERSION --app-version $$VERSION; \
+		cp chart/clay/charts/cloudnative-pg-*.tgz replicated/; \
 		cp chart/clay/charts/cert-manager-*.tgz replicated/; \
 		sed "s/chartVersion: .*/chartVersion: $$VERSION/" replicated/clay-chart.yaml \
 			> /tmp/clay-chart-$$VERSION.yaml; \
