@@ -227,6 +227,7 @@ cmx-test:
 		rm -f replicated/clay-$$VERSION.tgz; \
 		helm package chart/clay/ -d replicated \
 			--version $$VERSION --app-version $$VERSION; \
+		cp chart/clay/charts/cert-manager-*.tgz replicated/; \
 		\
 		echo "--- Creating Replicated release on Unstable ---"; \
 		sed "s/chartVersion: .*/chartVersion: $$VERSION/" replicated/clay-chart.yaml \
@@ -368,6 +369,7 @@ ec-test:
 		rm -f replicated/clay-$$VERSION.tgz; \
 		helm package chart/clay/ -d replicated \
 			--version $$VERSION --app-version $$VERSION; \
+		cp chart/clay/charts/cert-manager-*.tgz replicated/; \
 		sed "s/chartVersion: .*/chartVersion: $$VERSION/" replicated/clay-chart.yaml \
 			> /tmp/clay-chart-$$VERSION.yaml; \
 		cp /tmp/clay-chart-$$VERSION.yaml replicated/clay-chart.yaml; \
