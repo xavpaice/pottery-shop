@@ -286,7 +286,7 @@ cmx-test:
 			--version $$VERSION \
 			--set secrets.ADMIN_PASS=ci-test-only \
 			--set secrets.SESSION_SECRET=ci-test-session-secret-not-for-production \
-			--set config.SMTP_HOST=smtp.example.com \
+			--set config.SMTP_HOST=smtp.mailgun.org \
 			--set postgres.managed=false \
 			--set postgres.external.dsn=postgresql://postgres:ci-test@localhost/ci \
 			| preflight --interactive=false -; \
