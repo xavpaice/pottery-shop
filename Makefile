@@ -394,7 +394,7 @@ ec-test:
 		\
 		echo "--- Generating SSH key ---"; \
 		rm -f $$EC_KEY $$EC_KEY.pub; \
-		ssh-keygen -t ed25519 -C "pottery-ec-local" -f $$EC_KEY -N ""; \
+		ssh-keygen -t ed25519 -C "ci@clay.nz" -f $$EC_KEY -N ""; \
 		\
 		echo "--- Creating CMX VM ---"; \
 		VM_JSON=$$(replicated vm create \
