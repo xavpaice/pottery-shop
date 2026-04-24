@@ -17,7 +17,7 @@ spec:
     - --timeout=5m
   values:
     image:
-      repository: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.image.repository") }}'
+      repository: 'repl{{ ReplicatedImageName (HelmValue ".Values.image.repository") }}'
     imagePullSecrets:
       - name: enterprise-pull-secret
   builder:
