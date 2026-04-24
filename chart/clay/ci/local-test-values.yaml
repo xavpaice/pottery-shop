@@ -1,0 +1,19 @@
+secrets:
+  ADMIN_PASS: local-test-only
+  SESSION_SECRET: local-test-session-secret-not-for-production
+
+config:
+  SMTP_HOST: smtp.mailgun.org
+
+ingress:
+  enabled: true
+  host: pottery.local
+  tls:
+    mode: selfsigned
+
+persistence:
+  enabled: false
+
+cert-manager:
+  startupapicheck:
+    enabled: false

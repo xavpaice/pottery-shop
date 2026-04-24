@@ -1,4 +1,4 @@
-.PHONY: build test test-verbose clean run run-local run-stop docker helm-lint lint integration-test
+.PHONY: build test test-verbose clean run run-local run-stop docker helm-lint lint integration-test cmx-test cmx-test-teardown ec-test ec-test-teardown
 
 BINARY := pottery-server
 GO := go
@@ -196,35 +196,25 @@ integration-test:
 APP_SLUG := xav-pottery-shop
 CMX_CLUSTER := pottery-cmx-$(shell date +%s)
 CMX_VERSION := $(shell date -u '+%Y.%-m.%-d-%H%M%S')-dev-$(shell git rev-parse --short HEAD)
+CMX_STATE   := /tmp/pottery-cmx-state
+EC_STATE    := /tmp/pottery-ec-state
+EC_KEY      := /tmp/pottery-ec-key
 
-## cmx-test: full Replicated flow -- build image, create release, install on CMX, verify, teardown
+## cmx-test: mirror CI integration-test -- build release, install via Replicated on CMX, verify (no teardown)
 cmx-test:
-	@for tool in replicated docker helm kubectl; do \
+	@for tool in replicated docker helm kubectl jq; do \
 		command -v $$tool >/dev/null 2>&1 || { echo "Error: $$tool not found"; exit 1; }; \
 	done
+	@command -v preflight >/dev/null 2>&1 || { \
+		echo "Error: preflight not found -- https://github.com/replicatedhq/troubleshoot/releases"; exit 1; }
 	@test -n "$$REPLICATED_API_TOKEN" || { echo "Error: REPLICATED_API_TOKEN not set"; exit 1; }
 	@VERSION=$(CMX_VERSION) \
 	CLUSTER_NAME=$(CMX_CLUSTER) \
 	APP_SLUG=$(APP_SLUG) \
 	IMAGE_REPO=$(IMAGE_REPO) \
+	CMX_STATE=$(CMX_STATE) \
 	bash -ec ' \
-		CUSTOMER_ID=""; \
-		CLUSTER_ID=""; \
-		cleanup() { \
-			EXIT_CODE=$$?; \
-			if [ $$EXIT_CODE -ne 0 ] && [ -n "$$KUBECONFIG" ] && [ -f "$$KUBECONFIG" ]; then \
-				echo "--- Debug info ---"; \
-				kubectl get pods -n clay -o wide 2>/dev/null || true; \
-				kubectl get events -n clay --sort-by=.lastTimestamp 2>/dev/null || true; \
-				kubectl describe pods -n clay 2>/dev/null || true; \
-				kubectl logs -n clay -l app.kubernetes.io/name=clay --tail=50 2>/dev/null || true; \
-			fi; \
-			echo "--- Cleaning up ---"; \
-			if [ -n "$$CLUSTER_ID" ]; then replicated cluster rm "$$CLUSTER_ID" 2>/dev/null || true; fi; \
-			if [ -n "$$CUSTOMER_ID" ]; then replicated customer archive --app $$APP_SLUG "$$CUSTOMER_ID" 2>/dev/null || true; fi; \
-			rm -f /tmp/cmx-kubeconfig-$$CLUSTER_NAME; \
-		}; \
-		trap cleanup EXIT; \
+		trap '\''git checkout replicated/clay-chart.yaml 2>/dev/null || true'\'' EXIT; \
 		\
 		echo "--- Building and pushing image $$IMAGE_REPO:$$VERSION ---"; \
 		docker buildx build --platform linux/amd64 \
@@ -234,13 +224,15 @@ cmx-test:
 		helm registry logout registry.replicated.com 2>/dev/null || true; \
 		helm dependency update chart/clay/; \
 		helm lint chart/clay/; \
-		rm -f replicated/clay-$$VERSION.tgz; \
+		rm -f replicated/*.tgz; \
 		helm package chart/clay/ -d replicated \
-			--version $$VERSION \
-			--app-version $$VERSION; \
+			--version $$VERSION --app-version $$VERSION; \
+		cp chart/clay/charts/cloudnative-pg-*.tgz replicated/; \
+		cp chart/clay/charts/cert-manager-*.tgz replicated/; \
 		\
 		echo "--- Creating Replicated release on Unstable ---"; \
-		sed "s/chartVersion: .*/chartVersion: $$VERSION/" replicated/clay-chart.yaml > /tmp/clay-chart-$$VERSION.yaml; \
+		sed "s/chartVersion: .*/chartVersion: $$VERSION/" replicated/clay-chart.yaml \
+			> /tmp/clay-chart-$$VERSION.yaml; \
 		cp /tmp/clay-chart-$$VERSION.yaml replicated/clay-chart.yaml; \
 		RELEASE_OUT=$$(replicated release create \
 			--app $$APP_SLUG \
@@ -248,60 +240,70 @@ cmx-test:
 			--promote Unstable \
 			--version $$VERSION 2>&1); \
 		echo "$$RELEASE_OUT"; \
-		RELEASE_SEQ=$$(echo "$$RELEASE_OUT" | grep -oE "SEQUENCE: [0-9]+" | grep -oE "[0-9]+"); \
-		[ -n "$$RELEASE_SEQ" ] || { echo "Error: failed to get release sequence"; exit 1; }; \
-		echo "Release sequence: $$RELEASE_SEQ"; \
 		\
-		echo "--- Creating temp customer ---"; \
+		echo "--- Creating customer ---"; \
 		CUSTOMER_JSON=$$(replicated customer create \
 			--app $$APP_SLUG \
-			--name "cmx-test-$$VERSION" \
+			--name "cmx-local-$$VERSION" \
 			--channel Unstable \
 			--type dev \
-			--expires-in 1h \
-			--output json 2>&1); \
-		CUSTOMER_ID=$$(echo "$$CUSTOMER_JSON" | jq -r '.id'); \
-		LICENSE_ID=$$(echo "$$CUSTOMER_JSON" | jq -r '.installationId'); \
-		[ -n "$$CUSTOMER_ID" ] && [ "$$CUSTOMER_ID" != "null" ] || { echo "Error: failed to create customer"; echo "$$CUSTOMER_JSON"; exit 1; }; \
-		[ -n "$$LICENSE_ID" ] && [ "$$LICENSE_ID" != "null" ] || { echo "Error: failed to get license ID"; exit 1; }; \
-		echo "Customer: $$CUSTOMER_ID  License: $$LICENSE_ID"; \
+			--expires-in 24h \
+			--output json); \
+		CUSTOMER_ID=$$(echo "$$CUSTOMER_JSON" | jq -r ".id"); \
+		LICENSE_ID=$$(echo "$$CUSTOMER_JSON" | jq -r ".installationId"); \
+		[ -n "$$CUSTOMER_ID" ] && [ "$$CUSTOMER_ID" != "null" ] \
+			|| { echo "Error: failed to create customer"; exit 1; }; \
 		\
 		echo "--- Creating CMX cluster $$CLUSTER_NAME ---"; \
 		replicated cluster create \
 			--name $$CLUSTER_NAME \
 			--distribution k3s \
 			--version 1.35.0 \
+			--instance-type r1.medium \
 			--wait 10m \
-			--ttl 30m; \
-		CLUSTER_ID=$$(replicated cluster ls --output json | \
-			jq -r ".[] | select(.name==\"$$CLUSTER_NAME\") | .id"); \
+			--ttl 2h; \
+		CLUSTER_ID=$$(replicated cluster ls --output json \
+			| jq -r ".[] | select(.name==\"$$CLUSTER_NAME\") | .id"); \
 		[ -n "$$CLUSTER_ID" ] || { echo "Error: failed to get cluster ID"; exit 1; }; \
-		echo "Cluster ID: $$CLUSTER_ID"; \
+		\
+		printf "CLUSTER_ID=$$CLUSTER_ID\nCUSTOMER_ID=$$CUSTOMER_ID\n" > $$CMX_STATE; \
+		echo "State saved to $$CMX_STATE"; \
 		\
 		echo "--- Fetching kubeconfig ---"; \
-		replicated cluster kubeconfig $$CLUSTER_ID --stdout > /tmp/cmx-kubeconfig-$$CLUSTER_NAME; \
-		export KUBECONFIG=/tmp/cmx-kubeconfig-$$CLUSTER_NAME; \
+		replicated cluster kubeconfig $$CLUSTER_ID --stdout > /tmp/pottery-cmx-kubeconfig; \
+		export KUBECONFIG=/tmp/pottery-cmx-kubeconfig; \
 		\
-		echo "--- Installing from Replicated registry ---"; \
+		echo "--- Deploying postgres pod for preflight ---"; \
+		kubectl run ci-postgres --image=postgres:15 --restart=Never \
+			--env=POSTGRES_PASSWORD=ci-test --env=POSTGRES_DB=ci; \
+		kubectl wait pod/ci-postgres --for=condition=Ready --timeout=60s; \
+		kubectl port-forward pod/ci-postgres 5432:5432 & sleep 2; \
+		\
+		echo "--- Running preflight checks ---"; \
 		helm registry login registry.replicated.com \
-			--username "cmx-test@clay.nz" \
+			--username "cmx-local@clay.nz" \
 			--password "$$LICENSE_ID"; \
+		helm template clay \
+			oci://registry.replicated.com/$$APP_SLUG/unstable/clay \
+			--version $$VERSION \
+			-f chart/clay/ci/local-test-values.yaml \
+			--set postgres.managed=false \
+			--set postgres.external.dsn=postgresql://postgres:ci-test@localhost/ci \
+			| preflight --interactive=false -; \
+		\
+		echo "--- Installing chart from Replicated ---"; \
 		helm install clay \
 			oci://registry.replicated.com/$$APP_SLUG/unstable/clay \
 			--version $$VERSION \
 			--namespace clay --create-namespace \
 			--set clay.image.tag=$$VERSION \
-			--set secrets.ADMIN_PASS=cmx-test-only \
-			--set secrets.SESSION_SECRET=cmx-test-session-secret-not-for-production \
-			--set ingress.enabled=false \
-			--set persistence.enabled=false \
-			--set cert-manager.startupapicheck.enabled=false \
+			-f chart/clay/ci/local-test-values.yaml \
 			--timeout 8m; \
 		\
 		echo "--- Waiting for Postgres ---"; \
 		for i in $$(seq 1 60); do \
 			PHASE=$$(kubectl get clusters.postgresql.cnpg.io -n clay clay-postgres \
-				-o jsonpath="{.status.phase}" 2>/dev/null || echo "pending"); \
+				-o jsonpath="{.status.phase}" 2>/dev/null || echo pending); \
 			if echo "$$PHASE" | grep -q "Cluster in healthy state"; then \
 				echo "Postgres ready"; break; \
 			fi; \
@@ -315,9 +317,174 @@ cmx-test:
 			-o jsonpath="{.items[0].metadata.name}"); \
 		kubectl exec -n clay "$$POD" -- wget -qO- http://localhost:8080/ | head -c 200; \
 		echo ""; \
-		echo "--- CMX test passed ---"; \
+		\
+		echo "--- Verifying cert-manager ---"; \
+		for i in $$(seq 1 30); do \
+			kubectl get crd clusterissuers.cert-manager.io >/dev/null 2>&1 \
+				&& { echo "cert-manager CRDs ready"; break; }; \
+			printf "."; sleep 5; \
+		done; echo ""; \
+		kubectl get clusterissuers || true; \
+		kubectl get certificates -n clay || true; \
+		\
+		echo ""; \
+		echo "=== Tests passed ==="; \
+		echo "KUBECONFIG: /tmp/pottery-cmx-kubeconfig"; \
+		echo "Connect:    kubectl --kubeconfig /tmp/pottery-cmx-kubeconfig get pods -n clay"; \
+		echo "Teardown:   make cmx-test-teardown"; \
 	'
-	@git checkout replicated/clay-chart.yaml 2>/dev/null || true
+
+## cmx-test-teardown: remove CMX cluster and customer left by cmx-test
+cmx-test-teardown:
+	@test -f $(CMX_STATE) || { echo "No state at $(CMX_STATE)"; exit 0; }
+	@APP_SLUG=$(APP_SLUG) CMX_STATE=$(CMX_STATE) bash -ec ' \
+		. $$CMX_STATE; \
+		echo "--- Removing cluster $$CLUSTER_ID ---"; \
+		replicated cluster rm "$$CLUSTER_ID" 2>/dev/null || true; \
+		echo "--- Archiving customer $$CUSTOMER_ID ---"; \
+		replicated customer archive --app $$APP_SLUG "$$CUSTOMER_ID" 2>/dev/null || true; \
+		rm -f $$CMX_STATE /tmp/pottery-cmx-kubeconfig; \
+		echo "Done"; \
+	'
+
+## ec-test: mirror CI ec-integration-test -- install EC on CMX VM, verify (no teardown)
+ec-test:
+	@for tool in replicated docker helm jq ssh scp; do \
+		command -v $$tool >/dev/null 2>&1 || { echo "Error: $$tool not found"; exit 1; }; \
+	done
+	@test -n "$$REPLICATED_API_TOKEN" || { echo "Error: REPLICATED_API_TOKEN not set"; exit 1; }
+	@VERSION=$(CMX_VERSION) \
+	APP_SLUG=$(APP_SLUG) \
+	IMAGE_REPO=$(IMAGE_REPO) \
+	EC_KEY=$(EC_KEY) \
+	EC_STATE=$(EC_STATE) \
+	bash -ec ' \
+		trap '\''git checkout replicated/clay-chart.yaml 2>/dev/null || true'\'' EXIT; \
+		\
+		echo "--- Building and pushing image $$IMAGE_REPO:$$VERSION ---"; \
+		docker buildx build --platform linux/amd64 \
+			-t $$IMAGE_REPO:$$VERSION --push .; \
+		\
+		echo "--- Packaging chart and creating release ---"; \
+		helm dependency update chart/clay/; \
+		rm -f replicated/*.tgz; \
+		helm package chart/clay/ -d replicated \
+			--version $$VERSION --app-version $$VERSION; \
+		cp chart/clay/charts/cloudnative-pg-*.tgz replicated/; \
+		cp chart/clay/charts/cert-manager-*.tgz replicated/; \
+		sed "s/chartVersion: .*/chartVersion: $$VERSION/" replicated/clay-chart.yaml \
+			> /tmp/clay-chart-$$VERSION.yaml; \
+		cp /tmp/clay-chart-$$VERSION.yaml replicated/clay-chart.yaml; \
+		replicated release create \
+			--app $$APP_SLUG \
+			--yaml-dir ./replicated \
+			--promote Unstable \
+			--version $$VERSION; \
+		\
+		echo "--- Creating EC customer ---"; \
+		CUSTOMER_JSON=$$(replicated customer create \
+			--app $$APP_SLUG \
+			--name "ec-local-$$VERSION" \
+			--channel Unstable \
+			--type dev \
+			--expires-in 24h \
+			--embedded-cluster-download \
+			--airgap \
+			--output json); \
+		CUSTOMER_ID=$$(echo "$$CUSTOMER_JSON" | jq -r ".id"); \
+		LICENSE_ID=$$(echo "$$CUSTOMER_JSON" | jq -r ".installationId"); \
+		[ -n "$$CUSTOMER_ID" ] && [ "$$CUSTOMER_ID" != "null" ] \
+			|| { echo "Error: failed to create customer"; exit 1; }; \
+		\
+		echo "--- Generating SSH key ---"; \
+		rm -f $$EC_KEY $$EC_KEY.pub; \
+		ssh-keygen -t ed25519 -C "ci@clay.nz" -f $$EC_KEY -N ""; \
+		\
+		echo "--- Creating CMX VM ---"; \
+		VM_JSON=$$(replicated vm create \
+			--distribution ubuntu \
+			--version 24.04 \
+			--name pottery-ec-local-$$VERSION \
+			--ttl 2h \
+			--ssh-public-key $$EC_KEY.pub \
+			--output json); \
+		VM_ID=$$(echo "$$VM_JSON" | jq -r ".[0].id"); \
+		[ -n "$$VM_ID" ] && [ "$$VM_ID" != "null" ] \
+			|| { echo "Error: failed to create VM"; exit 1; }; \
+		\
+		printf "VM_ID=$$VM_ID\nCUSTOMER_ID=$$CUSTOMER_ID\n" > $$EC_STATE; \
+		echo "State saved to $$EC_STATE"; \
+		\
+		echo "--- Waiting for VM to be running ---"; \
+		SSH_HOST=""; SSH_PORT=""; \
+		for i in $$(seq 1 30); do \
+			VM_DATA=$$(replicated vm ls --output json | jq ".[] | select(.id == \"$$VM_ID\")"); \
+			STATUS=$$(echo "$$VM_DATA" | jq -r ".status"); \
+			if [ "$$STATUS" = "running" ]; then \
+				SSH_HOST=$$(echo "$$VM_DATA" | jq -r ".direct_ssh_endpoint"); \
+				SSH_PORT=$$(echo "$$VM_DATA" | jq -r ".direct_ssh_port"); \
+				break; \
+			fi; \
+			echo "VM status: $$STATUS"; sleep 10; \
+		done; \
+		[ -n "$$SSH_HOST" ] || { echo "Error: VM did not reach running state"; exit 1; }; \
+		printf "SSH_HOST=$$SSH_HOST\nSSH_PORT=$$SSH_PORT\n" >> $$EC_STATE; \
+		\
+		SSH="ssh -i $$EC_KEY -o StrictHostKeyChecking=no -p $$SSH_PORT"; \
+		SCP="scp -i $$EC_KEY -o StrictHostKeyChecking=no -P $$SSH_PORT"; \
+		\
+		echo "--- Uploading config values ---"; \
+		$$SCP replicated/local-test-config-values.yaml ci@$$SSH_HOST:~/config-values.yaml; \
+		\
+		echo "--- Downloading and installing EC ---"; \
+		$$SSH -o ServerAliveInterval=30 -o ServerAliveCountMax=40 ci@$$SSH_HOST \
+			"curl -f https://replicated.app/embedded/$$APP_SLUG/unstable \
+				-H \"Authorization: $$LICENSE_ID\" \
+				-o ~/$$APP_SLUG.tgz && \
+			tar -xzf ~/$$APP_SLUG.tgz && \
+			sudo ~/$$APP_SLUG install \
+				--license ~/license.yaml \
+				--config-values ~/config-values.yaml \
+				--headless \
+				--installer-password local-test-password \
+				--yes"; \
+		\
+		echo "--- Verifying installation ---"; \
+		$$SSH -o ServerAliveInterval=30 -o ServerAliveCountMax=20 ci@$$SSH_HOST \
+			"K0S=\$$(find /usr/local/bin /var/lib/$$APP_SLUG/bin /usr/bin -name k0s -type f 2>/dev/null | head -1); \
+			[ -n \"\$$K0S\" ] || { echo k0s not found; exit 1; }; \
+			NS=$$APP_SLUG; \
+			echo === Nodes ===; \
+			sudo \$$K0S kubectl get nodes; \
+			echo === Waiting for clay deployment ===; \
+			sudo \$$K0S kubectl rollout status deployment/clay -n \$$NS --timeout=300s; \
+			echo === Waiting for Postgres ===; \
+			for i in \$$(seq 1 60); do \
+				PHASE=\$$(sudo \$$K0S kubectl get clusters.postgresql.cnpg.io -n \$$NS clay-postgres \
+					-o jsonpath={.status.phase} 2>/dev/null || echo pending); \
+				echo \"\$$PHASE\" | grep -q \"Cluster in healthy state\" && { echo Postgres ready; break; }; \
+				printf .; sleep 5; \
+			done; echo; \
+			sudo \$$K0S kubectl get pods -A"; \
+		\
+		echo ""; \
+		echo "=== EC test passed ==="; \
+		echo "SSH:      ssh -i $$EC_KEY -p $$SSH_PORT ci@$$SSH_HOST"; \
+		echo "Teardown: make ec-test-teardown"; \
+	'
+
+## ec-test-teardown: remove CMX VM and customer left by ec-test
+ec-test-teardown:
+	@test -f $(EC_STATE) || { echo "No state at $(EC_STATE)"; exit 0; }
+	@APP_SLUG=$(APP_SLUG) EC_STATE=$(EC_STATE) bash -ec ' \
+		. $$EC_STATE; \
+		echo "--- Removing VM $$VM_ID ---"; \
+		replicated vm rm "$$VM_ID" 2>/dev/null || true; \
+		echo "--- Archiving customer $$CUSTOMER_ID ---"; \
+		replicated customer archive --app $$APP_SLUG "$$CUSTOMER_ID" 2>/dev/null || true; \
+		rm -f $$EC_STATE $(EC_KEY) $(EC_KEY).pub /tmp/pottery-ec-license.yaml; \
+		echo "Done"; \
+	'
 
 ## help: show this help
 help:
