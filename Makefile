@@ -439,7 +439,7 @@ ec-test:
 		\
 		echo "--- Uploading license ---"; \
 		replicated customer download-license \
-			--app $$APP_SLUG --customer-id $$CUSTOMER_ID \
+			--app $$APP_SLUG --customer $$CUSTOMER_ID \
 			-o /tmp/pottery-ec-license.yaml; \
 		$$SCP /tmp/pottery-ec-license.yaml ci@$$SSH_HOST:~/license.yaml; \
 		\
