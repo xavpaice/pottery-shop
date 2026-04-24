@@ -284,9 +284,7 @@ cmx-test:
 		helm template clay \
 			oci://registry.replicated.com/$$APP_SLUG/unstable/clay \
 			--version $$VERSION \
-			--set secrets.ADMIN_PASS=ci-test-only \
-			--set secrets.SESSION_SECRET=ci-test-session-secret-not-for-production \
-			--set config.SMTP_HOST=smtp.mailgun.org \
+			-f chart/clay/ci/local-test-values.yaml \
 			--set postgres.managed=false \
 			--set postgres.external.dsn=postgresql://postgres:ci-test@localhost/ci \
 			| preflight --interactive=false -; \
@@ -297,13 +295,7 @@ cmx-test:
 			--version $$VERSION \
 			--namespace clay --create-namespace \
 			--set clay.image.tag=$$VERSION \
-			--set secrets.ADMIN_PASS=cmx-local-only \
-			--set secrets.SESSION_SECRET=cmx-local-session-secret-not-for-production \
-			--set ingress.enabled=true \
-			--set ingress.host=pottery.local \
-			--set ingress.tls.mode=selfsigned \
-			--set persistence.enabled=false \
-			--set cert-manager.startupapicheck.enabled=false \
+			-f chart/clay/ci/local-test-values.yaml \
 			--timeout 8m; \
 		\
 		echo "--- Waiting for Postgres ---"; \
@@ -438,9 +430,7 @@ ec-test:
 		SCP="scp -i $$EC_KEY -o StrictHostKeyChecking=no -P $$SSH_PORT"; \
 		\
 		echo "--- Uploading config values ---"; \
-		printf "apiVersion: kots.io/v1beta1\nkind: ConfigValues\nmetadata:\n  name: clay\nspec:\n  values:\n    ADMIN_PASS:\n      valuePlaintext: local-test-only\n    SESSION_SECRET:\n      valuePlaintext: local-ec-test-session-secret\n    ORDER_EMAIL:\n      value: local@clay.nz\n" \
-			> /tmp/pottery-ec-config-values.yaml; \
-		$$SCP /tmp/pottery-ec-config-values.yaml ci@$$SSH_HOST:~/config-values.yaml; \
+		$$SCP replicated/local-test-config-values.yaml ci@$$SSH_HOST:~/config-values.yaml; \
 		\
 		echo "--- Downloading and installing EC ---"; \
 		$$SSH -o ServerAliveInterval=30 -o ServerAliveCountMax=40 ci@$$SSH_HOST \
@@ -488,8 +478,7 @@ ec-test-teardown:
 		replicated vm rm "$$VM_ID" 2>/dev/null || true; \
 		echo "--- Archiving customer $$CUSTOMER_ID ---"; \
 		replicated customer archive --app $$APP_SLUG "$$CUSTOMER_ID" 2>/dev/null || true; \
-		rm -f $$EC_STATE $(EC_KEY) $(EC_KEY).pub \
-			/tmp/pottery-ec-license.yaml /tmp/pottery-ec-config-values.yaml; \
+		rm -f $$EC_STATE $(EC_KEY) $(EC_KEY).pub /tmp/pottery-ec-license.yaml; \
 		echo "Done"; \
 	'
 

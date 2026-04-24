@@ -1,0 +1,12 @@
+apiVersion: kots.io/v1beta1
+kind: ConfigValues
+metadata:
+  name: clay
+spec:
+  values:
+    ADMIN_PASS:
+      valuePlaintext: local-test-only
+    SESSION_SECRET:
+      valuePlaintext: local-test-session-secret
+    ORDER_EMAIL:
+      value: local@clay.nz
