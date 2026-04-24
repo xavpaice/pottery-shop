@@ -437,12 +437,6 @@ ec-test:
 		SSH="ssh -i $$EC_KEY -o StrictHostKeyChecking=no -p $$SSH_PORT"; \
 		SCP="scp -i $$EC_KEY -o StrictHostKeyChecking=no -P $$SSH_PORT"; \
 		\
-		echo "--- Uploading license ---"; \
-		replicated customer download-license \
-			--app $$APP_SLUG --customer $$CUSTOMER_ID \
-			-o /tmp/pottery-ec-license.yaml; \
-		$$SCP /tmp/pottery-ec-license.yaml ci@$$SSH_HOST:~/license.yaml; \
-		\
 		echo "--- Uploading config values ---"; \
 		printf "apiVersion: kots.io/v1beta1\nkind: ConfigValues\nmetadata:\n  name: clay\nspec:\n  values:\n    ADMIN_PASS:\n      valuePlaintext: local-test-only\n    SESSION_SECRET:\n      valuePlaintext: local-ec-test-session-secret\n    ORDER_EMAIL:\n      value: local@clay.nz\n" \
 			> /tmp/pottery-ec-config-values.yaml; \
