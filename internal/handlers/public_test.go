@@ -97,7 +97,8 @@ func setupTestEnv(t *testing.T) (*PublicHandler, *middleware.SessionManager) {
 	store := models.NewProductStore(db)
 
 	funcMap := template.FuncMap{
-		"lower": strings.ToLower,
+		"lower":             strings.ToLower,
+		"customLogoEnabled": func() bool { return false },
 	}
 
 	publicTemplates := template.Must(
