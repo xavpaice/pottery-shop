@@ -445,7 +445,7 @@ ec-test:
 		echo "--- Downloading and installing EC ---"; \
 		$$SSH -o ServerAliveInterval=30 -o ServerAliveCountMax=40 ci@$$SSH_HOST \
 			"curl -f https://replicated.app/embedded/$$APP_SLUG/unstable \
-				-H 'Authorization: $$LICENSE_ID' \
+				-H \"Authorization: $$LICENSE_ID\" \
 				-o ~/$$APP_SLUG.tgz && \
 			tar -xzf ~/$$APP_SLUG.tgz && \
 			sudo ~/$$APP_SLUG install \
@@ -467,8 +467,8 @@ ec-test:
 			echo === Waiting for Postgres ===; \
 			for i in \$$(seq 1 60); do \
 				PHASE=\$$(sudo \$$K0S kubectl get clusters.postgresql.cnpg.io -n \$$NS clay-postgres \
-					-o jsonpath='{.status.phase}' 2>/dev/null || echo pending); \
-				echo \"\$$PHASE\" | grep -q 'Cluster in healthy state' && { echo Postgres ready; break; }; \
+					-o jsonpath={.status.phase} 2>/dev/null || echo pending); \
+				echo \"\$$PHASE\" | grep -q \"Cluster in healthy state\" && { echo Postgres ready; break; }; \
 				printf .; sleep 5; \
 			done; echo; \
 			sudo \$$K0S kubectl get pods -A"; \
