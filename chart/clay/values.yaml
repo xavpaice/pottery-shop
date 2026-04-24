@@ -5,9 +5,10 @@ replicaCount: 1
 
 clay:
   image:
-    # proxy.replicated.com or your custom domain (e.g. proxy.clay.nz)
-    registry: proxy.clay.nz
-    repository: proxy/xav-pottery-shop/ghcr.io/xavpaice/pottery-shop
+    # Full proxy path including source registry, e.g. proxy.clay.nz/proxy/<app>/ghcr.io
+    # ReplicatedImageRegistry rewrites this for airgap installs.
+    registry: proxy.clay.nz/proxy/xav-pottery-shop/ghcr.io
+    repository: xavpaice/pottery-shop
     tag: ""  # defaults to Chart.AppVersion when empty
     pullPolicy: IfNotPresent
 
@@ -117,15 +118,15 @@ postgres:
 # Pin to a specific patch version to avoid mutable-tag supply-chain risk.
 waitForPostgres:
   image:
-    registry: proxy.clay.nz
-    repository: proxy/xav-pottery-shop/index.docker.io/library/postgres
+    registry: proxy.clay.nz/proxy/xav-pottery-shop/index.docker.io
+    repository: library/postgres
     tag: 16.3-alpine3.20
 
 # -- Image used by webhook-wait Jobs to poll operator readiness.
 webhookWait:
   image:
-    registry: proxy.clay.nz
-    repository: proxy/xav-pottery-shop/index.docker.io/alpine/k8s
+    registry: proxy.clay.nz/proxy/xav-pottery-shop/index.docker.io
+    repository: alpine/k8s
     tag: "1.35.3"
 
 cloudnative-pg:

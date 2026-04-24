@@ -46,28 +46,23 @@ spec:
         secretName: 'repl{{ ConfigOption "tls_secret_name" }}'
     clay:
       image:
-        registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.clay.image.registry") true }}'
-        repository: 'repl{{ ReplicatedImageRepository (HelmValue ".Values.clay.image.repository") true }}'
+        registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.clay.image.registry") }}'
     waitForPostgres:
       image:
-        registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.waitForPostgres.image.registry") true }}'
-        repository: 'repl{{ ReplicatedImageRepository (HelmValue ".Values.waitForPostgres.image.repository") true }}'
+        registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.waitForPostgres.image.registry") }}'
     webhookWait:
       image:
-        registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.webhookWait.image.registry") true }}'
-        repository: 'repl{{ ReplicatedImageRepository (HelmValue ".Values.webhookWait.image.repository") true }}'
+        registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.webhookWait.image.registry") }}'
     cloudnative-pg:
       enabled: false
     cert-manager:
-      imageRegistry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.cert-manager.imageRegistry") true }}'
+      enabled: false
   # builder values are static and used only by the Replicated airgap builder.
   # They ensure helm template renders every conditional image path so the
   # builder can scan and bundle all images that could possibly be used.
   builder:
     postgres:
       managed: true
-    cert-manager:
-      enabled: true
     secrets:
       ADMIN_PASS: dummy
       SESSION_SECRET: dummy
