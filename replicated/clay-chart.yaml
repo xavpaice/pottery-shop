@@ -31,7 +31,7 @@ spec:
       managed: 'repl{{ ConfigOptionEquals "postgres_type" "managed" }}'
       cluster:
         instances: 'repl{{ ConfigOption "postgres_instances" }}'
-        imageName: 'repl{{ ReplicatedImageName (HelmValue ".Values.postgres.cluster.imageName") true }}'
+        imageName: 'repl{{ ReplicatedImageName "ghcr.io/cloudnative-pg/postgresql:18.3-system-trixie" }}'
       external:
         dsn: 'repl{{ ConfigOption "postgres_dsn" }}'
     service:
