@@ -375,25 +375,11 @@ ec-test:
 		sed "s/chartVersion: .*/chartVersion: $$VERSION/" replicated/clay-chart.yaml \
 			> /tmp/clay-chart-$$VERSION.yaml; \
 		cp /tmp/clay-chart-$$VERSION.yaml replicated/clay-chart.yaml; \
-		RELEASE_OUTPUT=$$(replicated release create \
+		replicated release create \
 			--app $$APP_SLUG \
 			--yaml-dir ./replicated \
 			--promote Unstable \
-			--version $$VERSION \
-			--output json 2>&1); \
-		RELEASE_SEQ=$$(echo "$$RELEASE_OUTPUT" | jq -r '.sequence // empty'); \
-		echo "Created release sequence: $$RELEASE_SEQ"; \
-		\
-		echo "--- Waiting for airgap bundle ---"; \
-		for i in $$(seq 1 40); do \
-			STATUS=$$(replicated release ls --app $$APP_SLUG --output json 2>/dev/null | \
-				jq -r ".[] | select(.Sequence == $$RELEASE_SEQ) | .AirgapBuildStatus // \"pending\"" 2>/dev/null \
-				|| echo "pending"); \
-			echo "Attempt $$i/40: airgap build status = $$STATUS"; \
-			[ "$$STATUS" = "built" ] && { echo "Airgap bundle ready"; break; }; \
-			[ $$i -eq 40 ] && { echo "Error: timed out waiting for airgap bundle"; exit 1; }; \
-			sleep 30; \
-		done; \
+			--version $$VERSION; \
 		\
 		echo "--- Creating EC customer ---"; \
 		CUSTOMER_JSON=$$(replicated customer create \
