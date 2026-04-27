@@ -65,6 +65,15 @@ spec:
   # They ensure helm template renders every conditional image path so the
   # builder can scan and bundle all images that could possibly be used.
   builder:
+    clay:
+      image:
+        registry: ghcr.io
+    waitForPostgres:
+      image:
+        registry: index.docker.io
+    webhookWait:
+      image:
+        registry: index.docker.io
     postgres:
       managed: true
     secrets:
