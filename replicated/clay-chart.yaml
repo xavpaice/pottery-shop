@@ -54,6 +54,9 @@ spec:
     webhookWait:
       image:
         registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.webhookWait.image.registry") }}'
+    replicated:
+      image:
+        registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.replicated.image.registry") }}'
     cloudnative-pg:
       enabled: false
     cert-manager:
