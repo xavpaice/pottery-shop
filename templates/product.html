@@ -2,53 +2,94 @@
 {{template "header" .}}
 
 {{with .Product}}
-<div class="product-detail">
-    <div class="product-gallery">
-        {{if .Images}}
-        <div class="gallery-main">
-            <img id="mainImage" src="/uploads/{{(index .Images 0).Filename}}" alt="{{.Title}}">
-        </div>
-        {{if gt (len .Images) 1}}
-        <div class="gallery-thumbs">
-            {{range .Images}}
-            <img src="/uploads/thumbnails/{{.ThumbnailFn}}" alt="{{$.Product.Title}}"
-                 onclick="document.getElementById('mainImage').src='/uploads/{{.Filename}}'"
-                 class="gallery-thumb">
+<div class="container">
+    <div class="product-detail-grid">
+        <div class="gallery-stack">
+            {{if .Images}}
+            <div class="gallery-main">
+                <img id="mainImage" src="/uploads/{{(index .Images 0).Filename}}" alt="{{.Title}}">
+            </div>
+            {{if gt (len .Images) 1}}
+            <div class="gallery-thumbs">
+                {{range $i, $img := .Images}}
+                <button class="gallery-thumb{{if eq $i 0}} is-active{{end}}"
+                    onclick="swapImage(this, '/uploads/{{$img.Filename}}')"
+                    aria-label="View image {{$i}}">
+                    <img src="/uploads/thumbnails/{{$img.ThumbnailFn}}" alt="">
+                </button>
+                {{end}}
+            </div>
+            {{end}}
+            {{else}}
+            <div class="gallery-main" style="display:grid;place-items:center;font-size:4rem;color:var(--sand-deep);">🏺</div>
             {{end}}
         </div>
-        {{end}}
-        {{else}}
-        <div class="gallery-main no-image-large">🏺</div>
-        {{end}}
-    </div>
 
-    <div class="product-details">
-        <h1>{{.Title}}</h1>
-        {{if .SellerName}}<p class="seller-attribution">by <a href="/seller/{{.SellerID}}">{{.SellerName}}</a></p>{{end}}
-        <p class="price">${{printf "%.2f" .Price}}</p>
+        <div class="product-detail-info">
+            <span class="eyebrow">{{if .SellerName}}by {{.SellerName}}{{else}}Clay.nz{{end}}</span>
+            <h1 class="title">{{.Title}}</h1>
 
-        {{if .IsSold}}
-        <p class="sold-notice">This piece has been sold.</p>
-        {{else}}
-        {{if $.InCart}}
-        <p class="in-cart-notice">✓ In your cart</p>
-        <a href="/cart" class="btn btn-secondary">View Cart</a>
-        {{else}}
-        <form method="POST" action="/cart/add">
-            <input type="hidden" name="product_id" value="{{.ID}}">
-            <button type="submit" class="btn btn-primary">Add to Cart</button>
-        </form>
-        {{end}}
-        {{end}}
+            <div class="price-row">
+                <span class="price">${{printf "%.2f" .Price}}</span>
+                {{if .IsSold}}
+                <span class="badge badge-sold">Sold</span>
+                {{else}}
+                <span class="badge badge-soft badge-dot">One of one · in stock</span>
+                {{end}}
+            </div>
 
-        <div class="description">
-            {{.Description}}
+            {{if .IsSold}}
+            <p class="text-stone">This piece has found a home.</p>
+            {{else}}
+            {{if $.InCart}}
+            <div style="display:flex;gap:var(--s-4);flex-wrap:wrap;margin-bottom:var(--s-4);">
+                <span class="badge" style="background:rgba(74,124,89,0.1);color:var(--green);">✓ In your cart</span>
+            </div>
+            <a href="/cart" class="btn btn-primary btn-block btn-lg">Go to cart →</a>
+            <form method="POST" action="/cart/remove" style="margin-top:var(--s-3);">
+                <input type="hidden" name="product_id" value="{{.ID}}">
+                <button type="submit" class="btn btn-ghost btn-block">Remove from cart</button>
+            </form>
+            {{else}}
+            <form method="POST" action="/cart/add">
+                <input type="hidden" name="product_id" value="{{.ID}}">
+                <button type="submit" class="btn btn-clay btn-block btn-lg">Add to cart · ${{printf "%.2f" .Price}}</button>
+            </form>
+            {{end}}
+            {{end}}
+
+            {{if .Description}}
+            <p class="desc">{{.Description}}</p>
+            {{end}}
+
+            {{if .SellerName}}
+            <div class="maker-card">
+                <div style="width:56px;height:56px;border-radius:50%;background:var(--sand);flex-shrink:0;"></div>
+                <div>
+                    <p class="name">{{.SellerName}}</p>
+                    {{if .SellerID}}<a href="/seller/{{.SellerID}}" class="meta">View profile →</a>{{end}}
+                </div>
+            </div>
+            {{end}}
         </div>
     </div>
 </div>
 {{end}}
 
-<a href="/" class="back-link">← Back to gallery</a>
+<script>
+function swapImage(btn, src) {
+    var main = document.getElementById('mainImage');
+    if (main) {
+        main.style.opacity = '0';
+        setTimeout(function() {
+            main.src = src;
+            main.style.opacity = '1';
+        }, 190);
+    }
+    document.querySelectorAll('.gallery-thumb').forEach(function(t) { t.classList.remove('is-active'); });
+    btn.classList.add('is-active');
+}
+</script>
 
 {{template "footer" .}}
 {{end}}

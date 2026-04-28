@@ -1,72 +1,77 @@
 {{define "dashboard_products.html"}}
 {{template "header" .}}
 
-<div class="dashboard">
-    <h2>My Products</h2>
-
-    <nav class="dashboard-nav">
-        <ul>
-            <li><a href="/dashboard">Dashboard</a></li>
-            <li><a href="/dashboard/products">My Products</a></li>
-        </ul>
+<div class="dash-shell">
+    <nav class="dash-side">
+        <div class="me">
+            <div style="width:40px;height:40px;border-radius:50%;background:var(--sand);flex-shrink:0;"></div>
+            <div>
+                <p class="me-name">{{.Seller.Name}}</p>
+                <p class="me-handle">Seller</p>
+            </div>
+        </div>
+        <div class="nav">
+            <a href="/dashboard">Overview</a>
+            <a href="/dashboard/products" class="is-active">Listings</a>
+            <a href="/seller/{{.Seller.ID}}">Public profile</a>
+        </div>
+        <form method="POST" action="/logout" style="margin-top:auto;padding-top:var(--s-7);">
+            <button type="submit" class="btn btn-ghost btn-block">Sign out</button>
+        </form>
     </nav>
+    <div class="dash-main">
+        <div class="dash-header">
+            <h2>Listings</h2>
+            <a href="/dashboard/products/new" class="btn btn-clay">+ New listing</a>
+        </div>
 
-    <div class="admin-toolbar" style="margin: 1rem 0;">
-        <a href="/dashboard/products/new" class="btn btn-primary">+ New Product</a>
-    </div>
-
-    {{if .Products}}
-    <table class="admin-table">
-        <thead>
-            <tr>
-                <th>Image</th>
-                <th>Title</th>
-                <th>Price</th>
-                <th>Status</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
+        {{if .Products}}
+        <div class="dash-list">
+            <div class="dash-list-row dash-list-head">
+                <div></div>
+                <div>Title</div>
+                <div>Price</div>
+                <div>Status</div>
+                <div>Actions</div>
+            </div>
             {{range .Products}}
-            <tr>
-                <td class="table-thumb">
+            <div class="dash-list-row">
+                <div class="dash-list-thumb">
                     {{if .Images}}
                     <img src="/uploads/thumbnails/{{(index .Images 0).ThumbnailFn}}" alt="">
-                    {{else}}
-                    <span class="no-thumb">—</span>
                     {{end}}
-                </td>
-                <td><a href="/dashboard/products/{{.ID}}/edit">{{.Title}}</a></td>
-                <td>${{printf "%.2f" .Price}}</td>
-                <td>
+                </div>
+                <div>
+                    <a href="/dashboard/products/{{.ID}}/edit">{{.Title}}</a>
+                </div>
+                <div style="font-family:var(--serif);">${{printf "%.2f" .Price}}</div>
+                <div>
                     <form method="POST" action="/dashboard/products/toggle-sold" class="inline-form">
                         <input type="hidden" name="id" value="{{.ID}}">
                         <button type="submit" class="status-badge {{if .IsSold}}sold{{else}}available{{end}}">
                             {{if .IsSold}}Sold{{else}}Available{{end}}
                         </button>
                     </form>
-                </td>
-                <td class="actions">
-                    <a href="/dashboard/products/{{.ID}}/edit" class="btn btn-small">Edit</a>
+                </div>
+                <div class="actions">
+                    <a href="/dashboard/products/{{.ID}}/edit" class="btn btn-small btn-ghost">Edit</a>
                     <form method="POST" action="/dashboard/products/delete" class="inline-form"
-                          onsubmit="return confirm('Delete this product?')">
+                          onsubmit="return confirm('Delete this listing?')">
                         <input type="hidden" name="id" value="{{.ID}}">
                         <button type="submit" class="btn btn-small btn-danger">Delete</button>
                     </form>
-                </td>
-            </tr>
+                </div>
+            </div>
             {{end}}
-        </tbody>
-    </table>
-    {{else}}
-    <div class="empty-state">
-        <p>No products yet. <a href="/dashboard/products/new">Create your first listing</a>.</p>
+        </div>
+        {{else}}
+        <div class="empty-state" style="padding:var(--s-7) 0;">
+            <h3>No listings yet</h3>
+            <p>Create your first listing to start selling.</p>
+            <a href="/dashboard/products/new" class="btn btn-clay mt-2">+ New listing</a>
+        </div>
+        {{end}}
     </div>
-    {{end}}
-
-    <form method="POST" action="/logout" style="margin-top: 2rem;">
-        <button type="submit" class="btn">Log Out</button>
-    </form>
 </div>
 
 {{template "footer" .}}

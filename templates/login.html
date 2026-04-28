@@ -1,28 +1,35 @@
 {{define "login.html"}}
 {{template "header" .}}
 
-<div class="auth-form">
-    <h2>Seller Login</h2>
-
-    {{if .Error}}
-    <div class="flash-message error-message">
-        <div class="container">{{.Error}}</div>
+<div class="auth-layout">
+    <div class="auth-side">
+        <div>
+            <span class="eyebrow" style="color:rgba(245,241,235,0.5);">Seller portal</span>
+            <h1>Welcome back.</h1>
+            <p>Log in to manage your listings, view orders, and update your studio profile.</p>
+        </div>
+        <p style="font-size:0.82rem;color:rgba(245,241,235,0.4);">New here? <a href="/register" style="color:var(--clay-soft);text-decoration:underline;text-underline-offset:3px;">Apply to sell →</a></p>
     </div>
-    {{end}}
-
-    <form method="POST" action="/login">
-        <div class="form-group">
-            <label for="email">Email</label>
-            <input type="email" id="email" name="email" required autofocus>
+    <div class="auth-form-wrap">
+        <div class="auth-form">
+            <h2>Sign in</h2>
+            {{if .Error}}
+            <div class="error-message">{{.Error}}</div>
+            {{end}}
+            <form method="POST" action="/login">
+                <div class="field">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" required autofocus autocomplete="email">
+                </div>
+                <div class="field">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block btn-lg">Sign in</button>
+            </form>
+            <p class="auth-link">Don't have an account? <a href="/register">Apply to sell</a></p>
         </div>
-        <div class="form-group">
-            <label for="password">Password</label>
-            <input type="password" id="password" name="password" required>
-        </div>
-        <button type="submit" class="btn btn-primary">Log In</button>
-    </form>
-
-    <p class="auth-link">Don't have an account? <a href="/register">Register as a seller</a></p>
+    </div>
 </div>
 
 {{template "footer" .}}

@@ -1,33 +1,61 @@
 {{define "dashboard.html"}}
 {{template "header" .}}
 
-<div class="dashboard">
-    <h2>Welcome, {{.Seller.Name}}</h2>
-
-    {{if .Flash}}
-    <div class="flash-message">
-        <div class="container">{{.Flash}}</div>
-    </div>
-    {{end}}
-
-    <p>This is your seller dashboard on Clay.nz.</p>
-
-    <nav class="dashboard-nav">
-        <ul>
-            <li><a href="/dashboard">Dashboard</a></li>
-            <li><a href="/dashboard/products">My Products</a></li>
-            {{if .FiringLogsEnabled}}<li><a href="/dashboard/firings">Firing Logs</a></li>{{end}}
-        </ul>
+<div class="dash-shell">
+    <nav class="dash-side">
+        <div class="me">
+            <div style="width:40px;height:40px;border-radius:50%;background:var(--sand);flex-shrink:0;"></div>
+            <div>
+                <p class="me-name">{{.Seller.Name}}</p>
+                <p class="me-handle">Seller</p>
+            </div>
+        </div>
+        <div class="nav">
+            <a href="/dashboard" class="is-active">Overview</a>
+            <a href="/dashboard/products">Listings</a>
+            {{if .FiringLogsEnabled}}<a href="/dashboard/firings">Firing log</a>{{end}}
+            <a href="/seller/{{.Seller.ID}}">Public profile</a>
+        </div>
+        <form method="POST" action="/logout" style="margin-top:auto;padding-top:var(--s-7);">
+            <button type="submit" class="btn btn-ghost btn-block">Sign out</button>
+        </form>
     </nav>
+    <div class="dash-main">
+        <div class="dash-header">
+            <h2>Kia ora, {{.Seller.Name}}</h2>
+            <a href="/dashboard/products/new" class="btn btn-clay">+ New listing</a>
+        </div>
 
-    <div class="dashboard-info">
-        <p><strong>Email:</strong> {{.Seller.Email}}</p>
-        {{if .Seller.Bio}}<p><strong>Bio:</strong> {{.Seller.Bio}}</p>{{end}}
+        {{if .Flash}}
+        <div class="flash is-shown" id="flash-toast">
+            <div class="flash-pill">{{.Flash}}</div>
+        </div>
+        {{end}}
+
+        <div class="dash-stats">
+            <div class="dash-stat">
+                <p class="label">Available</p>
+                <p class="value">{{or .AvailableCount 0}}</p>
+            </div>
+            <div class="dash-stat">
+                <p class="label">Sold this year</p>
+                <p class="value">{{or .SoldCount 0}}</p>
+            </div>
+            <div class="dash-stat">
+                <p class="label">Total pieces</p>
+                <p class="value">{{or .TotalCount 0}}</p>
+            </div>
+            <div class="dash-stat">
+                <p class="label">Account</p>
+                <p class="value" style="font-size:var(--step-1);color:var(--stone);">{{if .Seller.IsActive}}Active{{else}}Pending{{end}}</p>
+            </div>
+        </div>
+
+        <div style="margin-bottom:var(--s-4);">
+            <p style="font-size:0.85rem;color:var(--stone);">Email: {{.Seller.Email}}</p>
+            {{if .Seller.Bio}}<p style="font-size:0.85rem;color:var(--stone);margin-top:0.3rem;">{{.Seller.Bio}}</p>{{end}}
+        </div>
     </div>
-
-    <form method="POST" action="/logout" style="margin-top: 2rem;">
-        <button type="submit" class="btn">Log Out</button>
-    </form>
 </div>
 
 {{template "footer" .}}
