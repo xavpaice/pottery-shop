@@ -1,65 +1,80 @@
 {{define "seller_profile.html"}}
 {{template "header" .}}
 
-<section class="hero">
-    <h1>{{.Seller.Name}}</h1>
-    {{if .Seller.Bio}}<p>{{.Seller.Bio}}</p>{{end}}
-</section>
-
-{{if .Available}}
-<section class="seller-section">
-    <h2>Available Work</h2>
-    <div class="product-grid">
-        {{range .Available}}
-        <a href="/product/{{.ID}}" class="product-card">
-            <div class="product-image">
-                {{if .Images}}
-                <img src="/uploads/thumbnails/{{(index .Images 0).ThumbnailFn}}" alt="{{.Title}}" loading="lazy">
-                {{else}}
-                <div class="no-image">🏺</div>
-                {{end}}
+<div class="container">
+    {{with .Seller}}
+    <div class="seller-hero">
+        <div style="aspect-ratio:4/5;border-radius:var(--r-xl);background:var(--sand);overflow:hidden;">
+        </div>
+        <div>
+            <span class="eyebrow">Maker</span>
+            <h1>{{.Name}}</h1>
+            {{if .Bio}}<p class="bio">{{.Bio}}</p>{{end}}
+            <div class="meta-row">
+                <div>
+                    <span class="label">Studio</span>
+                    <span>{{.Name}}</span>
+                </div>
             </div>
-            <div class="product-info">
-                <h3>{{.Title}}</h3>
-                <p class="price">${{printf "%.2f" .Price}}</p>
-            </div>
-        </a>
-        {{end}}
+        </div>
     </div>
-</section>
-{{else}}
-<section class="seller-section">
-    <h2>Available Work</h2>
-    <div class="empty-state">
-        <p>No pieces available right now. Check back soon!</p>
-    </div>
-</section>
-{{end}}
+    {{end}}
 
-{{if .PastWork}}
-<section class="seller-section">
-    <h2>Past Work</h2>
-    <div class="product-grid">
-        {{range .PastWork}}
-        <a href="/product/{{.ID}}" class="product-card sold-card">
-            <div class="product-image">
-                {{if .Images}}
-                <img src="/uploads/thumbnails/{{(index .Images 0).ThumbnailFn}}" alt="{{.Title}}" loading="lazy">
-                {{else}}
-                <div class="no-image">🏺</div>
-                {{end}}
-                <span class="sold-badge">Sold</span>
-            </div>
-            <div class="product-info">
-                <h3>{{.Title}}</h3>
-            </div>
-        </a>
-        {{end}}
+    {{if .Available}}
+    <section style="margin-top:var(--s-7);">
+        <div class="section-head">
+            <h2>Available work</h2>
+        </div>
+        <div class="product-grid-std">
+            {{range .Available}}
+            <a href="/product/{{.ID}}" class="product-card reveal">
+                <div class="product-card-img">
+                    {{if .Images}}
+                    <img src="/uploads/thumbnails/{{(index .Images 0).ThumbnailFn}}" alt="{{.Title}}" loading="lazy">
+                    {{else}}
+                    <div style="aspect-ratio:4/5;background:var(--sand);"></div>
+                    {{end}}
+                </div>
+                <div class="product-card-body">
+                    <h3>{{.Title}}</h3>
+                    <p class="price">${{printf "%.2f" .Price}}</p>
+                </div>
+            </a>
+            {{end}}
+        </div>
+    </section>
+    {{else}}
+    <div class="empty-state" style="padding:var(--s-7) 0;">
+        <h3>Nothing available right now</h3>
+        <p>Check back soon for new pieces.</p>
     </div>
-</section>
-{{end}}
+    {{end}}
 
-<a href="/" class="back-link">← Back to shop</a>
+    {{if .PastWork}}
+    <section style="margin-top:var(--s-7);">
+        <div class="section-head">
+            <h2>Past work</h2>
+        </div>
+        <div class="product-grid-std">
+            {{range .PastWork}}
+            <a href="/product/{{.ID}}" class="product-card reveal">
+                <div class="product-card-img">
+                    {{if .Images}}
+                    <img src="/uploads/thumbnails/{{(index .Images 0).ThumbnailFn}}" alt="{{.Title}}" loading="lazy">
+                    {{else}}
+                    <div style="aspect-ratio:4/5;background:var(--sand);"></div>
+                    {{end}}
+                    <span class="card-sold-tag">Sold</span>
+                </div>
+                <div class="product-card-body">
+                    <h3>{{.Title}}</h3>
+                </div>
+            </a>
+            {{end}}
+        </div>
+    </section>
+    {{end}}
+</div>
 
 {{template "footer" .}}
 {{end}}

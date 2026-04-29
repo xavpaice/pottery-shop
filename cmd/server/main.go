@@ -260,6 +260,7 @@ func main() {
 	// Public routes
 	mux.HandleFunc("/", publicHandler.Home)
 	mux.HandleFunc("/gallery", publicHandler.Gallery)
+	mux.HandleFunc("GET /sellers", publicHandler.SellersList)
 	mux.HandleFunc("/product/", publicHandler.ProductDetail)
 	mux.HandleFunc("GET /seller/{id}", publicHandler.SellerProfile)
 	mux.HandleFunc("/cart", publicHandler.ViewCart)

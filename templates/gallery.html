@@ -1,36 +1,40 @@
 {{define "gallery.html"}}
 {{template "header" .}}
 
-<section class="hero">
-    <h1>Gallery</h1>
-    <p>A look back at pieces that have found new homes.</p>
-</section>
+<div class="container">
+    <div class="about-hero" style="padding:var(--s-8) 0 var(--s-6);">
+        <span class="eyebrow">Archive</span>
+        <h1>Gallery</h1>
+        <p class="text-stone mt-1">Pieces that have found new homes.</p>
+    </div>
 
-{{if .Products}}
-<div class="product-grid">
-    {{range .Products}}
-    <a href="/product/{{.ID}}" class="product-card sold-card">
-        <div class="product-image">
-            {{if .Images}}
-            <img src="/uploads/thumbnails/{{(index .Images 0).ThumbnailFn}}" alt="{{.Title}}" loading="lazy">
-            {{else}}
-            <div class="no-image">🏺</div>
-            {{end}}
-            <span class="sold-badge">Sold</span>
-        </div>
-        <div class="product-info">
-            <h3>{{.Title}}</h3>
-            {{if .SellerName}}<p class="seller-name">by <a href="/seller/{{.SellerID}}">{{.SellerName}}</a></p>{{end}}
-        </div>
-    </a>
+    {{if .Products}}
+    <div class="product-grid-std">
+        {{range .Products}}
+        <a href="/product/{{.ID}}" class="product-card reveal">
+            <div class="product-card-img">
+                {{if .Images}}
+                <img src="/uploads/thumbnails/{{(index .Images 0).ThumbnailFn}}" alt="{{.Title}}" loading="lazy">
+                {{else}}
+                <div style="aspect-ratio:4/5;background:var(--sand);"></div>
+                {{end}}
+                <span class="card-sold-tag">Sold</span>
+            </div>
+            <div class="product-card-body">
+                <h3>{{.Title}}</h3>
+                {{if .SellerName}}<p class="seller-name">by {{.SellerName}}</p>{{end}}
+            </div>
+        </a>
+        {{end}}
+    </div>
+    {{else}}
+    <div class="empty-state">
+        <h3>Nothing sold yet</h3>
+        <p>Everything is still available in the shop.</p>
+        <a href="/" class="btn btn-clay mt-2">Browse pieces</a>
+    </div>
     {{end}}
 </div>
-{{else}}
-<div class="empty-state">
-    <p>No sold pieces yet — everything is still available!</p>
-    <a href="/" class="btn btn-secondary">Browse the shop</a>
-</div>
-{{end}}
 
 {{template "footer" .}}
 {{end}}

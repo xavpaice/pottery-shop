@@ -1,0 +1,33 @@
+{{define "sellers.html"}}
+{{template "header" .}}
+
+<div class="container">
+    <div class="about-hero" style="padding:var(--s-8) 0 var(--s-6);">
+        <span class="eyebrow">Clay.nz</span>
+        <h1>Our makers</h1>
+        <p class="text-stone mt-1" style="max-width:44ch;">Studio potters from across Aotearoa, each with their own voice and practice.</p>
+    </div>
+
+    {{if .Sellers}}
+    <div class="makers-grid">
+        {{range .Sellers}}
+        <a href="/seller/{{.ID}}" class="maker-card-tall reveal">
+            <div class="portrait-wrap">
+                <div style="width:100%;height:100%;background:var(--sand);"></div>
+            </div>
+            <p class="maker-name">{{.Name}}</p>
+            {{if .Bio}}<p class="text-stone" style="font-size:0.85rem;margin-top:0.2rem;">{{.Bio}}</p>{{end}}
+        </a>
+        {{end}}
+    </div>
+    {{else}}
+    <div class="empty-state">
+        <h3>No makers yet</h3>
+        <p>Be the first to list your work.</p>
+        <a href="/register" class="btn btn-clay mt-2">Apply to sell</a>
+    </div>
+    {{end}}
+</div>
+
+{{template "footer" .}}
+{{end}}

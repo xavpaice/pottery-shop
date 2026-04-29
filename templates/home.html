@@ -1,37 +1,89 @@
 {{define "home.html"}}
 {{template "header" .}}
 
-<section class="hero">
-    <h1>Handcrafted Clay &amp; Sculpture</h1>
-    <p>Each piece is unique, shaped by hand, fired with intention.</p>
-    <p>Are you a potter? <a href="/register">Register as a seller</a> to list your work. Already registered? <a href="/dashboard">Go to your dashboard</a>.</p>
-</section>
+<div class="container">
+    <section class="home-hero reveal">
+        <div>
+            <span class="eyebrow">New work, always</span>
+            <h1>Handcrafted clay, <em>shaped slowly</em></h1>
+            <p class="lede">Each piece is unique — thrown by hand, fired with intention, and ready to find a home.</p>
+            <div class="actions">
+                <a href="#shop" class="btn btn-primary">Browse pieces</a>
+                <a href="/sellers" class="btn btn-ghost">Meet the makers</a>
+            </div>
+        </div>
+        <figure class="home-hero-figure">
+            {{if .Products}}{{with index .Products 0}}{{if .Images}}
+            <img src="/uploads/{{(index .Images 0).Filename}}" alt="Featured piece">
+            {{if .SellerName}}<div class="caption">{{.SellerName}}</div>{{end}}
+            {{else}}<div style="width:100%;height:100%;background:var(--sand);"></div>{{end}}
+            {{else}}<div style="width:100%;height:100%;background:var(--sand);"></div>
+            {{end}}{{end}}
+        </figure>
+    </section>
+</div>
 
-{{if .Products}}
-<div class="product-grid">
-    {{range .Products}}
-    <a href="/product/{{.ID}}" class="product-card">
-        <div class="product-image">
-            {{if .Images}}
-            <img src="/uploads/thumbnails/{{(index .Images 0).ThumbnailFn}}" alt="{{.Title}}" loading="lazy">
-            {{else}}
-            <div class="no-image">🏺</div>
-            {{end}}
-            {{if .IsSold}}<span class="sold-badge">Sold</span>{{end}}
+<div class="container" id="shop">
+    <div class="section-head">
+        <div>
+            <span class="eyebrow">Available now</span>
+            <h2>The shop</h2>
         </div>
-        <div class="product-info">
-            <h3>{{.Title}}</h3>
-            {{if .SellerName}}<p class="seller-name">by <a href="/seller/{{.SellerID}}">{{.SellerName}}</a></p>{{end}}
-            <p class="price">${{printf "%.2f" .Price}}</p>
+        <a href="/gallery" class="btn-link">View sold archive →</a>
+    </div>
+
+    {{if .Products}}
+    <div class="editorial-grid">
+        {{range $i, $p := .Products}}
+        {{if eq $i 0}}<div class="gi-feature reveal">{{end}}
+        {{if eq $i 1}}<div class="gi-tall reveal">{{end}}
+        {{if eq $i 2}}<div class="gi-third reveal">{{end}}
+        {{if eq $i 3}}<div class="gi-third reveal">{{end}}
+        {{if eq $i 4}}<div class="gi-third reveal">{{end}}
+        {{if eq $i 5}}<div class="gi-half reveal">{{end}}
+        {{if eq $i 6}}<div class="gi-half reveal">{{end}}
+        {{if ge $i 7}}<div class="gi-third reveal">{{end}}
+            <a href="/product/{{$p.ID}}" class="product-card">
+                <div class="product-card-img">
+                    {{if $p.Images}}
+                    <img src="/uploads/thumbnails/{{(index $p.Images 0).ThumbnailFn}}" alt="{{$p.Title}}" loading="lazy">
+                    {{else}}
+                    <div style="aspect-ratio:4/5;background:var(--sand);border-radius:var(--r-lg);"></div>
+                    {{end}}
+                    {{if $p.IsSold}}<span class="card-sold-tag">Sold</span>{{end}}
+                </div>
+                <div class="product-card-body">
+                    <h3>{{$p.Title}}</h3>
+                    {{if $p.SellerName}}<p class="seller-name">by {{$p.SellerName}}</p>{{end}}
+                    <p class="price">${{printf "%.2f" $p.Price}}</p>
+                </div>
+            </a>
         </div>
-    </a>
+        {{end}}
+    </div>
+    {{else}}
+    <div class="empty-state">
+        <h3>Nothing here yet</h3>
+        <p>Check back soon for new pieces.</p>
+        {{if .Seller}}<a href="/register" class="btn btn-clay mt-2">List your work</a>{{end}}
+    </div>
     {{end}}
 </div>
-{{else}}
-<div class="empty-state">
-    <p>No pieces available right now. Check back soon!</p>
+
+<div class="container">
+    <div class="story-strip reveal">
+        <div>
+            <span class="eyebrow">About Clay.nz</span>
+            <h2>Where makers find their audience</h2>
+            <p>A curated marketplace for NZ studio potters. Every piece listed here is made by hand, in a real studio, by a real person.</p>
+            <a href="/sellers" class="btn btn-clay mt-3">Meet the makers</a>
+        </div>
+        <div class="figures">
+            <div></div>
+            <div></div>
+        </div>
+    </div>
 </div>
-{{end}}
 
 {{template "footer" .}}
 {{end}}

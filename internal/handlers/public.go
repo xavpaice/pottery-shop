@@ -257,11 +257,19 @@ func (h *PublicHandler) ViewCart(w http.ResponseWriter, r *http.Request) {
 	session := middleware.GetSession(r)
 	cart := models.CartFromJSON(session.CartJSON)
 
+	step := 1
+	if s := r.URL.Query().Get("step"); s == "2" {
+		step = 2
+	} else if s == "3" {
+		step = 3
+	}
+
 	data := map[string]interface{}{
 		"Cart":      cart,
 		"CartCount": cart.Count(),
 		"Total":     cart.Total(),
 		"Flash":     session.Flash,
+		"Step":      step,
 	}
 	session.Flash = ""
 
@@ -361,6 +369,28 @@ func (h *PublicHandler) sendEmailTo(to, subject, body string) error {
 	auth := smtp.PlainAuth("", h.Config.SMTPUser, h.Config.SMTPPass, h.Config.SMTPHost)
 
 	return smtp.SendMail(addr, auth, from, []string{to}, []byte(msg))
+}
+
+func (h *PublicHandler) SellersList(w http.ResponseWriter, r *http.Request) {
+	sellers, err := h.Sellers.ListActive(r.Context())
+	if err != nil {
+		log.Printf("Error listing sellers: %v", err)
+		http.Error(w, "Internal server error", 500)
+		return
+	}
+
+	session := middleware.GetSession(r)
+	cart := models.CartFromJSON(session.CartJSON)
+
+	data := map[string]interface{}{
+		"Sellers":   sellers,
+		"CartCount": cart.Count(),
+		"Flash":     session.Flash,
+		"PageTitle": "Makers",
+	}
+	session.Flash = ""
+
+	h.render(w, "sellers.html", data)
 }
 
 func (h *PublicHandler) render(w http.ResponseWriter, name string, data interface{}) {

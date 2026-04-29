@@ -196,6 +196,32 @@ func (s *SellerStore) ListAll(ctx context.Context) ([]Seller, error) {
 	return sellers, rows.Err()
 }
 
+// ListActive returns all approved (is_active=true, non-admin) sellers.
+func (s *SellerStore) ListActive(ctx context.Context) ([]Seller, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT id, email, password_hash, name, bio, order_email, is_active, is_admin, approval_token, created_at, updated_at
+		 FROM sellers WHERE is_active=true AND is_admin=false ORDER BY created_at DESC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sellers []Seller
+	for rows.Next() {
+		var sel Seller
+		if err := rows.Scan(
+			&sel.ID, &sel.Email, &sel.PasswordHash, &sel.Name,
+			&sel.Bio, &sel.OrderEmail, &sel.IsActive, &sel.IsAdmin,
+			&sel.ApprovalToken, &sel.CreatedAt, &sel.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		sellers = append(sellers, sel)
+	}
+	return sellers, rows.Err()
+}
+
 // SetActive enables or disables a seller account. Used by admin.
 func (s *SellerStore) SetActive(ctx context.Context, id int64, active bool) error {
 	_, err := s.pool.Exec(ctx,

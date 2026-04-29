@@ -11,28 +11,41 @@
     <link rel="icon" href="/static/favicon-32.png" sizes="32x32" type="image/png">
     <link rel="icon" href="/static/favicon-48.png" sizes="48x48" type="image/png">
     <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;1,9..144,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
     <header class="site-header">
-        <div class="container header-inner">
-            <a href="/" class="logo">
-                <img src="{{if customLogoEnabled}}/custom-logo{{else}}/static/logo-horizontal-light.svg{{end}}" alt="Clay.nz" class="logo-img">
-            </a>
-            <nav class="main-nav">
-                <a href="/">Shop</a>
-                <a href="/gallery">Gallery</a>
-                <a href="/cart" class="cart-link">
+        <div class="container">
+            <nav class="nav">
+                <a href="/" class="brand-mark">
+                    <img src="{{if customLogoEnabled}}/custom-logo{{else}}/static/logo-mark-light.svg{{end}}" alt="" class="mark">
+                    <span class="name">Clay.nz</span>
+                </a>
+                <div class="nav-links">
+                    <a href="/">Shop</a>
+                    <a href="/gallery">Gallery</a>
+                    <a href="/sellers">Makers</a>
+                </div>
+                <a href="/cart" class="cart-pill">
                     Cart
-                    {{if .CartCount}}<span class="cart-badge">{{.CartCount}}</span>{{end}}
+                    {{if .CartCount}}<span class="count">{{.CartCount}}</span>{{end}}
                 </a>
             </nav>
         </div>
     </header>
     {{if .Flash}}
-    <div class="flash-message">
-        <div class="container">{{.Flash}}</div>
+    <div class="flash is-shown" id="flash-toast">
+        <div class="flash-pill">{{.Flash}}</div>
     </div>
+    <script>
+      (function(){
+        var t = document.getElementById('flash-toast');
+        if (t) setTimeout(function(){ t.classList.remove('is-shown'); }, 3200);
+      })();
+    </script>
     {{end}}
-    <main class="container">
+    <main>
 {{end}}

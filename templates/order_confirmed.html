@@ -1,11 +1,21 @@
 {{define "order_confirmed.html"}}
 {{template "header" .}}
 
-<div class="order-confirmed">
-    <div class="confirmed-icon">✓</div>
-    <h1>Order Received</h1>
-    <p>Thank you for your interest in our pottery! We've received your order and will be in touch shortly to arrange payment and delivery.</p>
-    <a href="/" class="btn btn-secondary">Continue Browsing</a>
+<div class="order-confirmed-page">
+    <div class="container-narrow">
+        <span class="order-num">Order received</span>
+        <span class="eyebrow mt-2">Confirmed</span>
+        <h1>Thank you.<br><em class="text-clay">We'll be in touch.</em></h1>
+        <p class="text-stone" style="font-size:1.05rem;max-width:42ch;">We've received your order and will contact you shortly to arrange payment and delivery.</p>
+        <div class="card-soft" style="padding:var(--s-5);margin-top:var(--s-5);">
+            <p style="font-size:0.85rem;color:var(--stone);margin-bottom:var(--s-3);">Held for you</p>
+            <p>Your pieces are reserved while we confirm your order.</p>
+        </div>
+        <div style="display:flex;gap:var(--s-4);flex-wrap:wrap;margin-top:var(--s-5);">
+            <a href="/" class="btn btn-primary">Continue browsing</a>
+            <a href="/sellers" class="btn btn-ghost">Meet our makers</a>
+        </div>
+    </div>
 </div>
 
 {{template "footer" .}}

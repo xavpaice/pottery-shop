@@ -1,34 +1,45 @@
 {{define "register.html"}}
 {{template "header" .}}
 
-<div class="auth-form">
-    <h2>Seller Registration</h2>
-
-    {{if .Error}}
-    <div class="flash-message error-message">
-        <div class="container">{{.Error}}</div>
+<div class="auth-layout">
+    <div class="auth-side">
+        <div>
+            <span class="eyebrow" style="color:rgba(245,241,235,0.5);">Sell on Clay.nz</span>
+            <h1>List your work.</h1>
+            <p>Join a curated marketplace for NZ studio potters. Your account will be reviewed before going live.</p>
+            <ul>
+                <li>Free to list</li>
+                <li>Keep 100% of your sale price</li>
+                <li>You handle shipping</li>
+                <li>Orders come straight to your inbox</li>
+            </ul>
+        </div>
+        <p style="font-size:0.82rem;color:rgba(245,241,235,0.4);">Already a seller? <a href="/login" style="color:var(--clay-soft);text-decoration:underline;text-underline-offset:3px;">Sign in →</a></p>
     </div>
-    {{end}}
-
-    <p>Register to sell your pottery on Clay.nz. Your account will be reviewed and approved by the admin before you can list items.</p>
-
-    <form method="POST" action="/register">
-        <div class="form-group">
-            <label for="name">Display Name</label>
-            <input type="text" id="name" name="name" required autofocus placeholder="Your name or studio name">
+    <div class="auth-form-wrap">
+        <div class="auth-form">
+            <h2>Apply to sell</h2>
+            {{if .Error}}
+            <div class="error-message">{{.Error}}</div>
+            {{end}}
+            <form method="POST" action="/register">
+                <div class="field">
+                    <label for="name">Display name</label>
+                    <input type="text" id="name" name="name" required autofocus placeholder="Your name or studio name" autocomplete="name">
+                </div>
+                <div class="field">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" required placeholder="you@example.com" autocomplete="email">
+                </div>
+                <div class="field">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required minlength="8" placeholder="At least 8 characters" autocomplete="new-password">
+                </div>
+                <button type="submit" class="btn btn-clay btn-block btn-lg">Request account</button>
+            </form>
+            <p class="auth-link">Already registered? <a href="/login">Sign in</a></p>
         </div>
-        <div class="form-group">
-            <label for="email">Email</label>
-            <input type="email" id="email" name="email" required placeholder="you@example.com">
-        </div>
-        <div class="form-group">
-            <label for="password">Password</label>
-            <input type="password" id="password" name="password" required minlength="8" placeholder="At least 8 characters">
-        </div>
-        <button type="submit" class="btn btn-primary">Request Account</button>
-    </form>
-
-    <p class="auth-link">Already have an account? <a href="/login">Log in</a></p>
+    </div>
 </div>
 
 {{template "footer" .}}
