@@ -369,6 +369,8 @@ jobs:
                 value: pottery-ec.ci.local
               tls_mode:
                 value: selfsigned
+              service_type:
+                value: NodePort
           EOF
 
       - name: Install Embedded Cluster
