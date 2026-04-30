@@ -18,7 +18,7 @@ spec:
           version: "36.0.0"
           values: |
             image:
-              registry: proxy.clay.nz/proxy/xav-pottery-shop/docker.io
+              registry: '{{repl ReplicatedImageRegistry (HelmValue ".image.registry") }}'
             service:
               type: NodePort
             ingressClass:
