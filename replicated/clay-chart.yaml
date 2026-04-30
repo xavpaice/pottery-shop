@@ -35,7 +35,7 @@ spec:
       external:
         dsn: 'repl{{ ConfigOption "postgres_dsn" }}'
     service:
-      type: 'repl{{ ConfigOption "service_type" }}'
+      type: 'repl{{ ConfigOption "service_type" | default "ClusterIP" }}'
       nodePort: 'repl{{ ConfigOption "service_node_port" }}'
     ingress:
       enabled: 'repl{{ ConfigOptionEquals "ingress_enabled" "1" }}'
