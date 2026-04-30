@@ -18,7 +18,7 @@ spec:
 
   values:
     installCRDs: true
-    imageRegistry: proxy.clay.nz/proxy/xav-pottery-shop/quay.io
+    imageRegistry: 'repl{{ ReplicatedImageRegistry "proxy.clay.nz/proxy/xav-pottery-shop/quay.io" }}'
     global:
       imagePullSecrets:
         - name: enterprise-pull-secret
