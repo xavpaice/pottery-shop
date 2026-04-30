@@ -15,7 +15,7 @@ spec:
         - name: traefik
           chartname: traefik/traefik
           namespace: traefik
-          version: "3.6.15"
+          version: "39.0.8"
           values: |
             image:
               registry: '{{repl ReplicatedImageRegistry (HelmValue ".image.registry") }}'
