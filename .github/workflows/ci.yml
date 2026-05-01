@@ -363,6 +363,12 @@ jobs:
                 valuePlaintext: ci-test-session-secret
               ORDER_EMAIL:
                 value: ci@clay.nz
+              ingress_enabled:
+                value: "1"
+              ingress_host:
+                value: pottery-ec.ci.local
+              tls_mode:
+                value: selfsigned
           EOF
 
       - name: Install Embedded Cluster
@@ -395,6 +401,12 @@ jobs:
              NS=${{ env.APP_SLUG }}
              echo '=== Nodes ==='
              sudo \$K0S kubectl get nodes
+             echo '=== Waiting for Traefik (EC extension, provides ingress + Middleware CRD) ==='
+             sudo \$K0S kubectl rollout status deployment/traefik -n traefik --timeout=300s
+             echo '=== Waiting for cert-manager deployments (proves image proxy registry rewrite) ==='
+             sudo \$K0S kubectl rollout status deployment/cert-manager -n \$NS --timeout=300s
+             sudo \$K0S kubectl rollout status deployment/cert-manager-webhook -n \$NS --timeout=300s
+             sudo \$K0S kubectl rollout status deployment/cert-manager-cainjector -n \$NS --timeout=300s
              echo '=== Waiting for clay deployment ==='
              sudo \$K0S kubectl rollout status deployment/clay -n \$NS --timeout=300s
              echo '=== Waiting for Postgres cluster ==='
