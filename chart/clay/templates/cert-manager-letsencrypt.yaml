@@ -25,6 +25,10 @@ spec:
       - http01:
           ingress:
             ingressClassName: {{ .Values.ingress.className }}
+            podTemplate:
+              spec:
+                imagePullSecrets:
+                  - name: enterprise-pull-secret
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
