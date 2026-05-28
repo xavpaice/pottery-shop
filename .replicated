@@ -1,5 +1,5 @@
 appSlug: "xav-pottery-shop"
 charts:
-  - path: ./chart
+  - path: ./chart/clay
 manifests:
   - ./replicated/*.yaml
