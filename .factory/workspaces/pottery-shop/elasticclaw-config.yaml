@@ -1,0 +1,12 @@
+schema_version: v1
+name: pottery-shop
+
+provider: replicated
+instance_type: r1.large
+ttl: 48h
+nix: true
+docker: true
+
+repositories:
+  - repo: xavpaice/pottery-shop
+    permissions: write

@@ -1,0 +1,41 @@
+name: Publish ElasticClaw Workflow
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".factory/**"
+      - ".github/workflows/factory-update.yaml"
+  workflow_dispatch:
+
+jobs:
+  publish:
+    name: Publish workflow (${{ matrix.workflow }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        workflow:
+          - .factory/workflows/dependency-update.yaml
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Publish workspace
+        uses: elasticclaw/actions/publish-workspace@updates
+        with:
+          hub-endpoint: https://crazy-hugle.ingress.replicatedcluster.com
+          token: ${{ secrets.ELASTICCLAW_TOKEN }}
+          path: .factory/workspaces/pottery-shop
+
+      - name: Publish workflows
+        uses: elasticclaw/actions/publish-workflow@updates
+        with:
+          hub-endpoint: https://crazy-hugle.ingress.replicatedcluster.com
+          token: ${{ secrets.ELASTICCLAW_TOKEN }}
+          workspace: pottery-shop
+          path: ${{ matrix.workflow }}
+
