@@ -148,6 +148,7 @@ cert-manager:
 
 # -- Replicated SDK
 replicated:
+  enabled: true
   nameOverride: clay-sdk
   image:
     registry: proxy.clay.nz
