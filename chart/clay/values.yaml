@@ -133,6 +133,7 @@ webhookWait:
 cloudnative-pg:
   image:
     repository: proxy.clay.nz/proxy/xav-pottery-shop/ghcr.io/cloudnative-pg/cloudnative-pg
+    tag: 1.23.1
   imagePullSecrets:
     - name: enterprise-pull-secret
 
