@@ -18,8 +18,8 @@ import (
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	migrations "pottery-shop/internal/migrations"
 	"pottery-shop/internal/middleware"
+	migrations "pottery-shop/internal/migrations"
 	"pottery-shop/internal/models"
 )
 

@@ -17,12 +17,12 @@ import (
 )
 
 type AdminHandler struct {
-	Store          *models.ProductStore
-	Sellers        *models.SellerStore
-	Templates      *template.Template
-	UploadDir      string
-	ThumbDir       string
-	UpdateChecker  *metrics.UpdateChecker
+	Store         *models.ProductStore
+	Sellers       *models.SellerStore
+	Templates     *template.Template
+	UploadDir     string
+	ThumbDir      string
+	UpdateChecker *metrics.UpdateChecker
 }
 
 func (h *AdminHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
