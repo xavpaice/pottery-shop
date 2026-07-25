@@ -15,6 +15,9 @@ postgres:
 
 cloudnative-pg:
   enabled: true
+  image:
+    repository: ghcr.io/cloudnative-pg/cloudnative-pg
+  imagePullSecrets: []
 
 cert-manager:
   enabled: false

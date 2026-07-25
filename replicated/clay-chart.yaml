@@ -56,8 +56,11 @@ spec:
         registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.webhookWait.image.registry") }}'
     cloudnative-pg:
       enabled: false
+      image:
+        repository: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.cloudnative-pg.image.repository") }}'
     cert-manager:
       enabled: false
+      imageRegistry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.cert-manager.imageRegistry") }}'
   # builder values are static and used only by the Replicated airgap builder.
   # They ensure helm template renders every conditional image path so the
   # builder can scan and bundle all images that could possibly be used.
@@ -69,3 +72,7 @@ spec:
       SESSION_SECRET: dummy
     config:
       ORDER_EMAIL: builder@example.com
+    cloudnative-pg:
+      enabled: true
+    cert-manager:
+      enabled: true
