@@ -132,7 +132,7 @@ func (h *PublicHandler) ProductDetail(w http.ResponseWriter, r *http.Request) {
 		"Product":   product,
 		"CartCount": cart.Count(),
 		"InCart":    inCart,
-		"Flash":    session.Flash,
+		"Flash":     session.Flash,
 	}
 	session.Flash = ""
 

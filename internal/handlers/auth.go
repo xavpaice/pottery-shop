@@ -22,14 +22,14 @@ import (
 
 // AuthHandler handles seller authentication: login, register, logout, dashboard, and approval.
 type AuthHandler struct {
-	sellers          *models.SellerStore
-	products         *models.ProductStore
-	sessions         *middleware.SessionManager
-	templates        *template.Template
-	config           *Config
-	uploadDir        string
-	thumbDir         string
-	FiringLogs       *metrics.FeatureChecker
+	sellers    *models.SellerStore
+	products   *models.ProductStore
+	sessions   *middleware.SessionManager
+	templates  *template.Template
+	config     *Config
+	uploadDir  string
+	thumbDir   string
+	FiringLogs *metrics.FeatureChecker
 }
 
 // NewAuthHandler creates a new AuthHandler.

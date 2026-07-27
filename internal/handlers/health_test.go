@@ -17,9 +17,9 @@ func (d successDriver) Open(_ string) (driver.Conn, error) { return successConn{
 func (c successConn) Prepare(_ string) (driver.Stmt, error) {
 	return nil, driver.ErrBadConn
 }
-func (c successConn) Close() error                         { return nil }
-func (c successConn) Begin() (driver.Tx, error)            { return nil, driver.ErrBadConn }
-func (c successConn) Ping(_ context.Context) error         { return nil }
+func (c successConn) Close() error                 { return nil }
+func (c successConn) Begin() (driver.Tx, error)    { return nil, driver.ErrBadConn }
+func (c successConn) Ping(_ context.Context) error { return nil }
 
 func init() {
 	sql.Register("success-driver", successDriver{})
