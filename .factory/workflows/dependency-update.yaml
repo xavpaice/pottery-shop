@@ -22,14 +22,19 @@ stages:
       inject: |
         Workflow task: run the Go dependency update maintenance workflow for Pottery Shop.
 
-        This is an unattended dependency maintenance workflow. Scope: Go
-        dependency updates for the top-level go.mod/go.sum. After updates
-        are applied, you will review the changes, fix any compatibility issues,
-        validate with make build and make test, and open one grouped PR.
+        This is an unattended dependency maintenance workflow. Do not ask for
+        permission to start. First, prepare the target branch:
 
-        Do not ask for permission to start. Immediately say exactly [PROCEED]
-        to run the dependency updater. Detailed post-update instructions will
-        follow.
+        - Check for an open PR with title "[deps] Dependency update: go" or branch "deps/dependency-update-go".
+        - If an open PR exists, fetch its branch, rebase it onto the current base branch, and check it out.
+        - If no open PR exists, create and check out a new branch named "deps/dependency-update-go".
+
+        Then say exactly [PROCEED] so the workflow can run the dependency
+        updater, then continue with the task using the follow-up instructions.
+
+        After the PR is open, the workflow will wait for GitHub CI checks to
+        finish, retry any failed GitHub Actions jobs once, and surface the logs
+        if they still fail. You must then fix the failures and say [DONE] again.
 
   - id: working
     label: Working
@@ -40,10 +45,6 @@ stages:
         command: |
           bash -lc '
             set -euo pipefail
-
-            if ! command -v go >/dev/null 2>&1; then
-              nix profile install nixpkgs#go_1_26 || nix-env -iA nixpkgs.go_1_26
-            fi
 
             go_path="$(command -v go)"
             go_version="$(go version)"
@@ -56,6 +57,7 @@ stages:
         paths: ["."]
         output: dependency_updates
         timeout: 30m
+        continue_on_error: true
       inject: |
         Dependency updates were applied for the root Go module.
 
@@ -76,8 +78,8 @@ stages:
         development environment (nix develop -c). Do not run ad-hoc go
         commands; use exactly these targets:
 
-        - make build
-        - make test
+        - cd pottery-shop && make build
+        - cd pottery-shop && make test
 
         Note: make test-integration requires a Kubernetes cluster. Only add it
         to the validation if the workflow environment provides one.
@@ -101,7 +103,7 @@ stages:
     on_enter:
       run:
         command: |
-          nix develop -c bash -lc '
+          bash -lc '
             set +e
             tmpdir="$(mktemp -d)"
 
@@ -171,10 +173,86 @@ stages:
         Fix the failures above, commit the changes to the same PR branch, and
         say [DONE] with the PR URL again when the PR is ready for validation.
 
+  - id: wait-for-ci
+    label: Wait for CI
+    triggers:
+      - gate_result:
+          stage: validate
+          verdict: pass
+    on_enter:
+      run:
+        command: |
+          bash -lc '
+            set -euo pipefail
+
+            if ! command -v gh >/dev/null 2>&1; then
+                echo "{\"status\": \"error\", \"reason\": \"gh CLI is not available\"}"
+                exit 1
+            fi
+
+            if ! gh auth status >/dev/null 2>&1; then
+                echo "{\"status\": \"error\", \"reason\": \"gh CLI is not authenticated\"}"
+                exit 1
+            fi
+
+            python3 scripts/wait_for_pr_ci.py --repo-dir kots --branch deps/dependency-update-go
+          '
+        output: ci_status
+        timeout: 120m
+    gate:
+      output: ci_status
+      pass:
+        path: status
+        values: [passed]
+      fail:
+        path: status
+        values: [failed, error]
+      required: true
+
+  - id: fix-ci
+    label: Fix CI Failures
+    triggers:
+      - gate_result:
+          stage: wait-for-ci
+          verdict: fail
+    on_enter:
+      inject: |
+        GitHub CI checks failed and the automatic retry did not resolve them.
+
+        PR: {{ .Outputs.ci_status.pr_url }}
+        Status: {{ .Outputs.ci_status.status }}
+        Failed checks:
+        {{ .Outputs.ci_status.checks }}
+
+        Retried GitHub Actions runs:
+        {{ .Outputs.ci_status.retried }}
+
+        Log tails from the retried failed jobs:
+        {{ .Outputs.ci_status.logs }}
+
+        Read the logs, identify the root cause of the failures, and make
+        reasonable scoped fixes in the PR branch (under kots/ when the issue
+        is in the Go code). Commit and push the fixes to the same branch.
+
+        If the failures are clearly unrelated to the dependency update (for
+        example, an infrastructure or flaky CI issue that you cannot resolve
+        from the code), or if you have tried to fix them and the failures persist,
+        explain why and say exactly [CI FAILED] to stop the workflow instead of
+        looping indefinitely.
+
+        When the fixes are pushed and the PR is ready, say [DONE] with the PR
+        URL again so the workflow re-runs the local validation and monitors CI.
+
+  - id: ci-failed
+    label: CI Failed
+    triggers:
+      - message_contains: "[CI FAILED]"
+    terminal: true
+
   - id: complete
     label: Complete
     triggers:
       - gate_result:
-          stage: validate
+          stage: wait-for-ci
           verdict: pass
     terminal: true
