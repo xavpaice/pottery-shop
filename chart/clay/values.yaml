@@ -105,7 +105,7 @@ features:
 postgres:
   managed: true
   cluster:
-    imageName: proxy.clay.nz/proxy/xav-pottery-shop/ghcr.io/cloudnative-pg/postgresql:18.3-system-trixie
+    imageName: ghcr.io/cloudnative-pg/postgresql:18.3-system-trixie
     instances: 1
     storage:
       size: 5Gi
