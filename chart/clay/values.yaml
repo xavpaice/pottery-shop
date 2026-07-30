@@ -132,9 +132,8 @@ webhookWait:
 
 cloudnative-pg:
   image:
-    repository: proxy.clay.nz/proxy/xav-pottery-shop/ghcr.io/cloudnative-pg/cloudnative-pg
-  imagePullSecrets:
-    - name: enterprise-pull-secret
+    repository: ghcr.io/cloudnative-pg/cloudnative-pg
+  imagePullSecrets: []
 
 # -- cert-manager: install cert-manager as a bundled subchart.
 #   Set enabled: false when cert-manager is already installed in the cluster.
