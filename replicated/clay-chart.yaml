@@ -64,6 +64,8 @@ spec:
   builder:
     postgres:
       managed: true
+      cluster:
+        imageName: ghcr.io/cloudnative-pg/postgresql:18.3-system-trixie
     secrets:
       ADMIN_PASS: dummy
       SESSION_SECRET: dummy
