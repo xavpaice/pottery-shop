@@ -17,8 +17,9 @@ spec:
     - --timeout=5m
   values:
     image:
-      repository: 'repl{{ ReplicatedImageName (HelmValue ".Values.image.repository") }}'
-    imagePullSecrets: []
+      repository: 'repl{{ ReplicatedImageName "ghcr.io/cloudnative-pg/cloudnative-pg" }}'
+    imagePullSecrets:
+      - name: enterprise-pull-secret
   builder:
     image:
       repository: ghcr.io/cloudnative-pg/cloudnative-pg
