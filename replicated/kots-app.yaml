@@ -14,5 +14,6 @@ spec:
       applicationUrl: "http://clay"
   additionalImages:
     - ghcr.io/cloudnative-pg/postgresql:18.3-system-trixie
+    - ghcr.io/cloudnative-pg/cloudnative-pg:1.29.0
     - index.docker.io/library/postgres:16.3-alpine3.20
     - index.docker.io/alpine/k8s:1.35.3
