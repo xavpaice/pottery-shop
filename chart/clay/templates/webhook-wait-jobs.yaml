@@ -27,8 +27,12 @@ spec:
             - sh
             - -c
             - |
-              kubectl rollout status deploy/{{ .Release.Name }}-cloudnative-pg \
-                -n {{ .Release.Namespace }} --timeout=120s
+              kubectl rollout status deploy/{{ .Release.Name | trunc 63 | trimSuffix "-" }}-cloudnative-pg \
+                -n {{ .Release.Namespace }} --timeout=60s || \
+              kubectl rollout status deploy/cloudnative-pg \
+                -n {{ .Release.Namespace }} --timeout=60s || \
+              kubectl rollout status deploy/{{ include "clay.fullname" . }}-cloudnative-pg \
+                -n {{ .Release.Namespace }} --timeout=60s
 {{- end }}
 ---
 {{- if (index .Values "cert-manager" "enabled") }}
