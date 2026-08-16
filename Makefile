@@ -1,6 +1,8 @@
-.PHONY: build test test-verbose clean run run-local run-stop docker helm-lint lint integration-test cmx-test cmx-test-teardown ec-test ec-test-teardown
+.PHONY: build test test-verbose clean run run-local run-stop docker helm-lint lint integration-test cmx-test cmx-test-teardown ec-test ec-test-teardown build-cardboard docker-cardboard run-cardboard
 
 BINARY := pottery-server
+CARDBOARD_BINARY := cardboard-server
+CARDBOARD_IMAGE  := cardboard:dev
 GO := go
 K3D_CLUSTER := pottery
 K3D_IMAGE := pottery-shop:dev
@@ -8,6 +10,18 @@ K3D_IMAGE := pottery-shop:dev
 ## build: compile the server binary
 build:
 	CGO_ENABLED=0 $(GO) build -o $(BINARY) ./cmd/server
+
+## build-cardboard: compile the cardboard music server binary
+build-cardboard:
+	CGO_ENABLED=0 $(GO) build -o $(CARDBOARD_BINARY) ./cmd/cardboard
+
+## docker-cardboard: build the cardboard Docker image
+docker-cardboard:
+	docker build -f cmd/cardboard/Dockerfile -t $(CARDBOARD_IMAGE) .
+
+## run-cardboard: build and run the cardboard server binary
+run-cardboard: build-cardboard
+	./$(CARDBOARD_BINARY)
 
 ## test: run all tests
 test:
