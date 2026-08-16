@@ -1,0 +1,13 @@
+{{- if include "clay.isTrue" .Values.cardboard.enabled }}
+{{- include "clay.validateCardboard" . }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "clay.cardboardFullname" . }}
+  labels:
+    {{- include "clay.cardboardLabels" . | nindent 4 }}
+data:
+  {{- range $key, $value := .Values.cardboard.config }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}
+{{- end }}
