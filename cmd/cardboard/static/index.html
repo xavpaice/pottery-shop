@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <base href="/cardboard/">
+  <title>Cardboard</title>
+  <link rel="stylesheet" href="css/cardboard.css">
+</head>
+<body>
+  <div class="app">
+    <header class="player">
+      <div class="now-playing">
+        <div id="track-info" class="track-info">Nothing playing</div>
+        <div class="progress" id="progress-container">
+          <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        <div class="times">
+          <span id="current-time">0:00</span>
+          <span id="duration">0:00</span>
+        </div>
+      </div>
+      <div class="controls">
+        <button id="btn-prev" aria-label="Previous">&#9664;&#9664;</button>
+        <button id="btn-play" aria-label="Play/Pause">&#9654;</button>
+        <button id="btn-next" aria-label="Next">&#9654;&#9654;</button>
+        <button id="btn-shuffle" aria-label="Shuffle">&#128256;</button>
+        <button id="btn-repeat" aria-label="Repeat">&#8635;</button>
+      </div>
+      <div class="volume">
+        <label for="volume">Vol</label>
+        <input id="volume" type="range" min="0" max="1" step="0.01" value="0.8">
+      </div>
+    </header>
+
+    <main class="library">
+      <div class="search">
+        <input id="search" type="text" placeholder="Search title, artist, or album...">
+      </div>
+      <ul id="track-list" class="track-list"></ul>
+    </main>
+  </div>
+
+  <script src="js/howler.min.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
