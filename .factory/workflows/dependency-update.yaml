@@ -17,7 +17,7 @@ states:
       effects:
         - exec.run:
             command: |
-              bash -lc 'bash scripts/prepare-deps-branch.sh xavpaice/pottery-shop main deps/dependency-update-go "[deps] Dependency update: go"'
+              bash -lc 'cd "$HOME/.openclaw/workspace" && bash scripts/prepare-deps-branch.sh xavpaice/pottery-shop main deps/dependency-update-go "[deps] Dependency update: go"'
             timeout: 10m
 
   prepare_failed:
@@ -58,7 +58,7 @@ states:
       effects:
         - exec.run:
             command: |
-              bash -lc 'bash scripts/detect-go-changes.sh pottery-shop | tee /tmp/detect.json; python3 -c "import json,sys; d=json.load(open(\"/tmp/detect.json\")); sys.exit(0 if d[\"status\"]==\"has_changes\" else 1)"'
+              bash -lc 'cd "$HOME/.openclaw/workspace" && bash scripts/detect-go-changes.sh pottery-shop | tee /tmp/detect.json; python3 -c "import json,sys; d=json.load(open(\"/tmp/detect.json\")); sys.exit(0 if d[\"status\"]==\"has_changes\" else 1)"'
             timeout: 15m
 
   no_changes:
@@ -85,7 +85,7 @@ states:
         - exec.run:
             command: |
               bash -lc '
-                set +e
+                cd "$HOME/.openclaw/workspace" && set +e
                 tmpdir="$(mktemp -d)"
 
                 ( cd pottery-shop && make build >"$tmpdir/build.log" 2>&1 ) ; build_status=$?

@@ -6,6 +6,7 @@ repositories:
     provider: github
     repository: xavpaice/pottery-shop
     source_control: github
+    permissions: write
 
 execution:
   provider: replicated
