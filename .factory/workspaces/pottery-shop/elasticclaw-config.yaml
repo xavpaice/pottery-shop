@@ -8,7 +8,7 @@ repositories:
     source_control: github
 
 execution:
-  provider: daytona
+  provider: replicated
   nix: true
   docker: true
   tools:
