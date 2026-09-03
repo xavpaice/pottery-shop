@@ -3,6 +3,8 @@ uploads/*.jpeg
 pottery.db
 .env
 pottery-server
+/cardboard-server
+/cardboard
 server
 .envrc
 .planning/

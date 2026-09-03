@@ -1,0 +1,21 @@
+{{- if include "clay.isTrue" .Values.cardboard.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "clay.cardboardFullname" . }}
+  labels:
+    {{- include "clay.cardboardLabels" . | nindent 4 }}
+{{- $serviceType := .Values.cardboard.service.type }}
+{{- if include "clay.isTrue" .Values.ingress.enabled }}{{- $serviceType = "ClusterIP" }}{{- end }}
+spec:
+  type: {{ $serviceType }}
+  selector:
+    {{- include "clay.cardboardSelectorLabels" . | nindent 4 }}
+  ports:
+    - port: {{ .Values.cardboard.service.port }}
+      targetPort: {{ .Values.cardboard.containerPort }}
+      protocol: TCP
+      {{- if and (eq $serviceType "NodePort") .Values.cardboard.service.nodePort }}
+      nodePort: {{ .Values.cardboard.service.nodePort }}
+      {{- end }}
+{{- end }}

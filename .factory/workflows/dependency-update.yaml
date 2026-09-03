@@ -1,271 +1,274 @@
-schema_version: v1
+schema_version: 2
 name: dependency-update-potteryshop
 enabled: true
+manual_trigger: true
 
-trigger:
-  cron:
-    schedule: "0 21 * * *"
-    timezone: "America/Chicago"
-    overlap_policy: skip
-    timeout: 2h
+initial_state: manual_trigger
 
-enable_manual_trigger: true
+states:
+  manual_trigger:
+    description: Waiting for a manual start.
+    phase: setup
 
-tags: ["cron", "dependencies"]
-color: cyan
-
-stages:
-  - id: prepare
-    label: Prepare Branch
-    entry: true
-    plan_gate: true
+  prepare:
+    description: Prepare the dependency-update branch.
+    phase: build
     on_enter:
-      run:
-        command: |
-          bash -lc 'bash scripts/prepare-deps-branch.sh xavpaice/pottery-shop main deps/dependency-update-go "[deps] Dependency update: go"'
-        output: branch_prep
-        timeout: 10m
-      inject: |
-        Branch preparation completed for `xavpaice/pottery-shop`.
+      effects:
+        - exec.run:
+            command: |
+              bash -lc 'cd "$HOME/.openclaw/workspace" && bash scripts/prepare-deps-branch.sh xavpaice/pottery-shop main deps/dependency-update-go "[deps] Dependency update: go"'
+            timeout: 10m
 
-        Status: {{ .Outputs.branch_prep.status }}
-        Branch: {{ .Outputs.branch_prep.branch }}
-        Base branch: {{ .Outputs.branch_prep.base_branch }}
-    gate:
-      output: branch_prep
-      pass:
-        path: status
-        values: [ready]
-      fail:
-        path: status
-        values: [error, failed]
-      required: true
-
-  - id: prepare-failed
-    label: Branch Preparation Failed
-    triggers:
-      - gate_result:
-          stage: prepare
-          verdict: fail
-    on_enter:
-      inject: |
-        Branch preparation failed.
-
-        Status: {{ .Outputs.branch_prep.status }}
-        Reason: {{ .Outputs.branch_prep.reason }}
-
-        Repo: {{ .Outputs.branch_prep.repo }}
-        Base branch: {{ .Outputs.branch_prep.base_branch }}
-        Expected branch: {{ .Outputs.branch_prep.expected_branch }}
-
-        Please investigate the failure and trigger the workflow manually once it is resolved.
-      run:
-        command: sleep 2
-        output: noop
-        timeout: 10s
+  prepare_failed:
+    description: Branch preparation failed.
+    phase: done
     terminal: true
-
-  - id: update-deps
-    label: Update Dependencies
-    triggers:
-      - gate_result:
-          stage: prepare
-          verdict: pass
     on_enter:
-      dependency_updates:
-        ecosystems: [go]
-        paths: ["pottery-shop"]
-        output: dependency_updates
-        timeout: 30m
+      effects:
+        - agent.task:
+            prompt: |
+              Branch preparation failed.
 
-      inject: |
-        Dependency update step completed.
+              Inspect the `exec.last_run` facts (stdout, stderr, error) for the reason.
+              Expected branch: deps/dependency-update-go
+              Base branch: main
+              Repo: xavpaice/pottery-shop
 
-        Ecosystems: {{ .Outputs.dependency_updates.ecosystems }}
-        Manifests: {{ .Outputs.dependency_updates.manifests }}
-        Files changed: {{ .Outputs.dependency_updates.files_changed }}
+              Please investigate the failure and trigger the workflow manually once it is resolved.
+            include_facts:
+              - exec.last_run.stdout
+              - exec.last_run.stderr
+              - exec.last_run.error
 
-        Say exactly [CHANGE-DETECTION-NEEDED] so the workflow can detect the updated dependency files and continue with validation.
-
-  - id: detect-changes
-    label: Detect Changes
-    triggers:
-      - message_contains: "[CHANGE-DETECTION-NEEDED]"
+  update_deps:
+    description: Update Go dependencies.
+    phase: build
     on_enter:
-      run:
-        command: |
-          bash -lc 'bash scripts/detect-go-changes.sh pottery-shop'
-        output: dep_check
-        timeout: 15m
+      effects:
+        - dependency.update:
+            ecosystems: [go]
+            paths: [pottery-shop]
+            timeout: 30m
 
-      inject: |
-        Change detection completed.
-
-        Status: {{ .Outputs.dep_check.status }}
-        Branch: {{ .Outputs.branch_prep.branch }}
-
-  - id: no-changes
-    label: No Changes
-    triggers:
-      - output_matches:
-          output: dep_check
-          path: status
-          any_of: [no_changes]
+  detect_changes:
+    description: Detect whether dependency files changed.
+    phase: build
     on_enter:
-      inject: |
-        No dependency changes were detected on branch {{ .Outputs.branch_prep.branch }}.
+      effects:
+        - exec.run:
+            command: |
+              bash -lc 'cd "$HOME/.openclaw/workspace" && bash scripts/detect-go-changes.sh pottery-shop | tee /tmp/detect.json; python3 -c "import json,sys; d=json.load(open(\"/tmp/detect.json\")); sys.exit(0 if d[\"status\"]==\"has_changes\" else 1)"'
+            timeout: 15m
 
-        The dependency updater ran successfully, but all Go modules are already up to date. This is a normal outcome. No further action is needed.
-      run:
-        command: sleep 2
-        output: noop
-        timeout: 10s
+  no_changes:
+    description: No dependency changes were detected.
+    phase: done
     terminal: true
-
-  - id: validate
-    label: Validate
-    triggers:
-      - output_matches:
-          output: dep_check
-          path: status
-          any_of: [has_changes]
-      - message_contains: "[VALIDATION_NEEDED]"
     on_enter:
-      run:
-        command: |
-          bash -lc '
-            set +e
-            tmpdir="$(mktemp -d)"
+      effects:
+        - agent.task:
+            prompt: |
+              No dependency changes were detected on the expected branch.
 
-            ( cd pottery-shop && make build >"$tmpdir/build.log" 2>&1 ) ; build_status=$?
-            ( cd pottery-shop && make test >"$tmpdir/test.log" 2>&1 ) ; test_status=$?
+              The dependency updater ran successfully, but all Go modules are already up to date. This is a normal outcome. No further action is needed.
+            include_facts:
+              - exec.dependency_update.ecosystems
+              - exec.dependency_update.manifests
+              - exec.dependency_update.files_changed
 
-            python3 - "$tmpdir" "$build_status" "$test_status" <<PY
-          import json
-          import pathlib
-          import sys
-
-          tmpdir = pathlib.Path(sys.argv[1])
-          statuses = {
-              "build": int(sys.argv[2]),
-              "test": int(sys.argv[3]),
-          }
-
-          checks = []
-          for name, code in statuses.items():
-              log = (tmpdir / f"{name}.log").read_text(errors="replace")
-              checks.append({
-                  "name": name,
-                  "status": "passed" if code == 0 else "failed",
-                  "exit_code": code,
-                  "log_tail": log[-12000:],
-              })
-
-          failed = [check for check in checks if check["exit_code"] != 0]
-          print(json.dumps({
-              "status": "passed" if not failed else "failed",
-              "reason": "all validation checks passed" if not failed else "one or more validation checks failed",
-              "checks": checks,
-          }))
-          PY
-          '
-        output: validation
-        timeout: 45m
-      inject: |
-        Validation completed.
-
-        Status: {{ .Outputs.validation.status }}
-        Reason: {{ .Outputs.validation.reason }}
-    gate:
-      output: validation
-      pass:
-        path: status
-        values: [passed]
-      fail:
-        path: status
-        values: [failed, error]
-      required: true
-
-  - id: fix-validation
-    label: Fix Validation
-    triggers:
-      - gate_result:
-          stage: validate
-          verdict: fail
+  validate:
+    description: Validate updated dependencies.
+    phase: test
     on_enter:
-      inject: |
-        You are now in the middle of an automated dependency update workflow for the pottery-shop project (`xavpaice/pottery-shop`).
+      effects:
+        - exec.run:
+            command: |
+              bash -lc '
+                cd "$HOME/.openclaw/workspace" && set +e
+                tmpdir="$(mktemp -d)"
 
-        The Go repository is checked out in the `./pottery-shop` directory relative to the workspace root. Run all repo commands (`go`, `make`, `git`) from that directory.
+                ( cd pottery-shop && make build >"$tmpdir/build.log" 2>&1 ) ; build_status=$?
+                ( cd pottery-shop && make test >"$tmpdir/test.log" 2>&1 ) ; test_status=$?
 
-        So far the workflow has:
-        1. Prepared a branch (`{{ .Outputs.branch_prep.branch }}`) using the `prepare-deps-branch.sh` script.
-        2. Updated Go dependencies via the `dependency_updates` action, which may have changed `go.mod`, `go.sum`, and/or `vendor/` in the `pottery-shop` directory.
-        3. Validated the updated dependencies by running:
-           - `make build` — build the pottery-server binary
-           - `make test` — run the Go test suite
+                python3 - "$tmpdir" "$build_status" "$test_status" <<PY
+              import json
+              import pathlib
+              import sys
 
-        Validation failed. One or more of those checks did not pass, usually because an updated dependency introduced a breaking change or incompatible API change in the Go module.
+              tmpdir = pathlib.Path(sys.argv[1])
+              statuses = {
+                  "build": int(sys.argv[2]),
+                  "test": int(sys.argv[3]),
+              }
 
-        Status: {{ .Outputs.validation.status }}
-        Reason: {{ .Outputs.validation.reason }}
+              checks = []
+              for name, code in statuses.items():
+                  log = (tmpdir / f"{name}.log").read_text(errors="replace")
+                  checks.append({
+                      "name": name,
+                      "status": "passed" if code == 0 else "failed",
+                      "exit_code": code,
+                      "log_tail": log[-12000:],
+                  })
 
-        Failed checks:
-        {{ .Outputs.validation.checks }}
+              failed = [check for check in checks if check["exit_code"] != 0]
+              print(json.dumps({
+                  "status": "passed" if not failed else "failed",
+                  "reason": "all validation checks passed" if not failed else "one or more validation checks failed",
+                  "checks": checks,
+              }))
+              PY
+              '
+            timeout: 45m
 
-        Your task: fix the failures above with reasonable, scoped changes inside `./pottery-shop`. Treat these compatibility fixes as part of this dependency update workflow. Do not downgrade, pin, or skip an update just because it has breaking API changes unless the required changes are broad, risky, unrelated to this workflow's scope, or cannot be completed within reasonable effort.
-
-        When the fixes are ready, commit them to the same branch (`{{ .Outputs.branch_prep.branch }}`) and say exactly [VALIDATION_NEEDED] so the workflow can re-run validation.
-
-  - id: open-pr
-    label: Open PR
-    triggers:
-      - gate_result:
-          stage: validate
-          verdict: pass
+  fix_validation:
+    description: Fix validation failures.
+    phase: build
     on_enter:
-      inject: |
-        You are now in the middle of an automated dependency update workflow for the pottery-shop project (`xavpaice/pottery-shop`).
+      effects:
+        - agent.task:
+            prompt: |
+              You are in the middle of an automated dependency update workflow for the pottery-shop project (`xavpaice/pottery-shop`).
 
-        The Go repository is checked out in the `./pottery-shop` directory relative to the workspace root. Run all repo commands (`go`, `make`, `git`) from that directory.
+              The Go repository is checked out in the `./pottery-shop` directory relative to the workspace root. Run all repo commands (`go`, `make`, `git`) from that directory.
 
-        So far the workflow has:
-        1. Prepared a branch (`{{ .Outputs.branch_prep.branch }}`) using the `prepare-deps-branch.sh` script.
-        2. Updated Go dependencies via the `dependency_updates` action, which changed dependency files in `pottery-shop`.
-        3. Validated the updates by running `make build` and `make test` — all checks passed.
+              So far the workflow has:
+              1. Prepared a branch (`deps/dependency-update-go`) using the `prepare-deps-branch.sh` script.
+              2. Updated Go dependencies via the `dependency.update` effect, which may have changed `go.mod`, `go.sum`, and/or `vendor/` in the `pottery-shop` directory.
+              3. Validated the updated dependencies by running `make build` and `make test`.
 
-        Now open the grouped PR from the current branch. You are already on `deps/dependency-update-go` from the earlier preparation step.
+              Validation failed. One or more of those checks did not pass, usually because an updated dependency introduced a breaking change or incompatible API change in the Go module.
 
-        Requirements:
-        - PR title: [deps] Dependency update: go
-        - PR body must start with: "This PR was generated by the dependency-update-potteryshop Factory workflow."
-        - Push the current branch.
-        - If an open PR already exists from this workflow, the push will update it. If no open PR exists, create one.
+              Your task: fix the failures above with reasonable, scoped changes inside `./pottery-shop`. Treat these compatibility fixes as part of this dependency update workflow. Do not downgrade, pin, or skip an update just because it has breaking API changes unless the required changes are broad, risky, unrelated to this workflow's scope, or cannot be completed within reasonable effort.
 
-        Say exactly [DONE] with the PR URL when the PR is raised or updated.
+              When the fixes are ready, commit them to the branch (`deps/dependency-update-go`) and run the `retry_validation` command.
+            include_facts:
+              - exec.last_run.stdout
+              - exec.dependency_update.files_changed
 
-  - id: pr_opened
-    label: PR Opened
-    triggers:
-      - message_contains: "[DONE]"
+  open_pr:
+    description: Open the dependency-update PR.
+    phase: pr
     on_enter:
-      inject: |
-        PR created. Watch for CI results and review comments.
+      effects:
+        - agent.task:
+            prompt: |
+              You are in the middle of an automated dependency update workflow for the pottery-shop project (`xavpaice/pottery-shop`).
 
-  - id: ready_to_merge
-    label: Ready to merge
+              The Go repository is checked out in the `./pottery-shop` directory relative to the workspace root. Run all repo commands (`go`, `make`, `git`) from that directory.
+
+              So far the workflow has:
+              1. Prepared a branch (`deps/dependency-update-go`) using the `prepare-deps-branch.sh` script.
+              2. Updated Go dependencies via the `dependency.update` effect, which changed dependency files in `pottery-shop`.
+              3. Validated the updates by running `make build` and `make test` — all checks passed.
+
+              Now open the grouped PR from the current branch. You are already on `deps/dependency-update-go` from the earlier preparation step.
+
+              Requirements:
+              - PR title: [deps] Dependency update: go
+              - PR body must start with: "This PR was generated by the dependency-update-potteryshop Factory workflow."
+              - Push the current branch.
+              - If an open PR already exists from this workflow, the push will update it. If no open PR exists, create one.
+
+              Run the `mark_pr_opened` command with the PR URL when the PR is raised or updated.
+            include_facts:
+              - exec.last_run.stdout
+              - exec.dependency_update.files_changed
+              - exec.dependency_update.updates
+
+  pr_opened:
+    description: PR is open; waiting for CI and reviews.
+    phase: review
+    on_enter:
+      effects:
+        - agent.task:
+            prompt: |
+              PR created. Watch for CI results and review comments.
+
+              When CI is passing and reviews are clean, run the `mark_ready_to_merge` command.
+
+  ready_to_merge:
+    description: CI is green and reviews are clean.
+    phase: review
     terminal: true
-    triggers:
-      - pr_conditions:
-          ci: passing
-          reviews: clean
-          quiet_for: 30m
     on_enter:
-      inject: |
-        CI is green and reviews are clean. The PR is ready to merge.
+      effects:
+        - agent.task:
+            prompt: |
+              CI is green and reviews are clean. The PR is ready to merge.
 
-        No further action is needed from this workflow. Do not push any more changes or send any workflow tokens.
-      run:
-        command: sleep 2
-        output: noop
-        timeout: 10s
+              No further action is needed from this workflow. Do not push any more changes.
+
+commands:
+  start:
+    from: manual_trigger
+    to: prepare
+
+  retry_validation:
+    from: fix_validation
+    to: validate
+
+  mark_pr_opened:
+    from: open_pr
+    to: pr_opened
+
+  mark_ready_to_merge:
+    from: pr_opened
+    to: ready_to_merge
+
+transitions:
+  prepare_succeeded:
+    from: prepare
+    on: exec.run.completed
+    when:
+      exec:
+        last_run:
+          succeeded:
+            equals: true
+    to: update_deps
+
+  prepare_failed:
+    from: prepare
+    on: exec.run.failed
+    to: prepare_failed
+
+  update_deps_succeeded:
+    from: update_deps
+    on: dependency.update.completed
+    when:
+      exec:
+        dependency_update:
+          succeeded:
+            equals: true
+    to: detect_changes
+
+  update_deps_failed:
+    from: update_deps
+    on: dependency.update.failed
+    to: prepare_failed
+
+  changes_detected:
+    from: detect_changes
+    on: exec.run.completed
+    to: validate
+
+  no_changes_detected:
+    from: detect_changes
+    on: exec.run.failed
+    to: no_changes
+
+  validation_succeeded:
+    from: validate
+    on: exec.run.completed
+    when:
+      exec:
+        last_run:
+          succeeded:
+            equals: true
+    to: open_pr
+
+  validation_failed:
+    from: validate
+    on: exec.run.failed
+    to: fix_validation

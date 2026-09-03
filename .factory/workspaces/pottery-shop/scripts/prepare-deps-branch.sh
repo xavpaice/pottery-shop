@@ -27,6 +27,9 @@ if [[ -z "$repo" || -z "$base_branch" || -z "$expected_branch" || -z "$pr_title"
 fi
 
 repo_name="${repo#*/}"
+if [[ ! -d "$repo_name" ]]; then
+    git clone "https://github.com/${repo}.git" "$repo_name"
+fi
 cd "$repo_name"
 
 emit_json() {

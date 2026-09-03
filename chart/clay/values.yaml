@@ -146,6 +146,53 @@ cert-manager:
     imagePullSecrets:
       - name: enterprise-pull-secret
 
+# -- Cardboard music browser (R2-backed MP3 player).
+cardboard:
+  enabled: false
+  replicaCount: 1
+  image:
+    registry: proxy.clay.nz/proxy/xav-pottery-shop/ghcr.io
+    repository: xavpaice/cardboard
+    tag: ""
+    pullPolicy: IfNotPresent
+  service:
+    type: NodePort
+    port: 80
+    nodePort: 30901
+  containerPort: 8080
+  config:
+    PORT: "8080"
+    R2_REGION: "auto"
+    R2_PRESIGN_TTL: "1h"
+  secrets:
+    R2_ACCESS_KEY_ID: ""
+    R2_SECRET_ACCESS_KEY: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 32Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
+  readinessProbe:
+    httpGet:
+      path: /readyz
+      port: 8080
+    initialDelaySeconds: 2
+    periodSeconds: 10
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 30
+  startupProbe:
+    httpGet:
+      path: /healthz
+      port: 8080
+    failureThreshold: 30
+    periodSeconds: 2
+
 # -- Replicated SDK
 replicated:
   nameOverride: clay-sdk

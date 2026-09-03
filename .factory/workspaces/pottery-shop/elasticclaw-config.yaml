@@ -1,12 +1,29 @@
-schema_version: v1
+schema_version: 2
 name: pottery-shop
 
-provider: replicated
-instance_type: r1.large
-ttl: 48h
-nix: true
-docker: true
-
 repositories:
-  - repo: xavpaice/pottery-shop
+  pottery-shop:
+    provider: github
+    repository: xavpaice/pottery-shop
+    source_control: github
     permissions: write
+
+execution:
+  provider: replicated
+  nix: true
+  docker: true
+  tools:
+    - git
+    - gh
+    - go
+    - bash
+
+credentials:
+  github_token:
+    secret: GITHUB_TOKEN
+
+source_control:
+  connections:
+    github:
+      provider: github
+      credentials: github_token

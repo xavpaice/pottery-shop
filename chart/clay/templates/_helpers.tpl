@@ -142,6 +142,60 @@ This guards against the "no database at all" misconfiguration where postgres.man
 {{- end }}
 
 {{/*
+Cardboard name helpers.
+*/}}
+{{- define "clay.cardboardName" -}}
+{{- printf "%s-cardboard" (include "clay.name" .) | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{- define "clay.cardboardFullname" -}}
+{{- printf "%s-cardboard" (include "clay.fullname" .) | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Cardboard common labels
+*/}}
+{{- define "clay.cardboardLabels" -}}
+helm.sh/chart: {{ include "clay.chart" . }}
+{{ include "clay.cardboardSelectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end }}
+
+{{/*
+Cardboard selector labels
+*/}}
+{{- define "clay.cardboardSelectorLabels" -}}
+app.kubernetes.io/name: {{ include "clay.cardboardName" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+Validate cardboard configuration — fail fast when enabled but required values are missing.
+*/}}
+{{- define "clay.validateCardboard" -}}
+{{- if include "clay.isTrue" .Values.cardboard.enabled }}
+{{- if not (.Values.cardboard.config.R2_ENDPOINT | trim) }}
+  {{- fail "cardboard.enabled=true requires cardboard.config.R2_ENDPOINT" }}
+{{- end }}
+{{- if not (.Values.cardboard.config.R2_BUCKET | trim) }}
+  {{- fail "cardboard.enabled=true requires cardboard.config.R2_BUCKET" }}
+{{- end }}
+{{- if not (.Values.cardboard.config.R2_PUBLIC_URL_PREFIX | trim) }}
+  {{- fail "cardboard.enabled=true requires cardboard.config.R2_PUBLIC_URL_PREFIX" }}
+{{- end }}
+{{- if not (.Values.cardboard.secrets.R2_ACCESS_KEY_ID | trim) }}
+  {{- fail "cardboard.enabled=true requires cardboard.secrets.R2_ACCESS_KEY_ID" }}
+{{- end }}
+{{- if not (.Values.cardboard.secrets.R2_SECRET_ACCESS_KEY | trim) }}
+  {{- fail "cardboard.enabled=true requires cardboard.secrets.R2_SECRET_ACCESS_KEY" }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
 Image pull secrets
 */}}
 {{- define "replicated.imagePullSecrets" -}}

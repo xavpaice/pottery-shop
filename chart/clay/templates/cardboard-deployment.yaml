@@ -1,0 +1,54 @@
+{{- if include "clay.isTrue" .Values.cardboard.enabled }}
+{{- include "clay.validateCardboard" . }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "clay.cardboardFullname" . }}
+  labels:
+    {{- include "clay.cardboardLabels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.cardboard.replicaCount }}
+  progressDeadlineSeconds: 1200
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      {{- include "clay.cardboardSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/cardboard-configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/cardboard-secret.yaml") . | sha256sum }}
+      labels:
+        {{- include "clay.cardboardSelectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "clay.fullname" . }}
+      {{- include "replicated.imagePullSecrets" . | nindent 6 }}
+      containers:
+        - name: cardboard
+          image: {{ .Values.cardboard.image.registry }}/{{ .Values.cardboard.image.repository }}:{{ .Values.cardboard.image.tag | default .Chart.AppVersion }}
+          imagePullPolicy: {{ .Values.cardboard.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.cardboard.containerPort }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "clay.cardboardFullname" . }}
+            - secretRef:
+                name: {{ include "clay.cardboardFullname" . }}
+          {{- with .Values.cardboard.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.cardboard.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.cardboard.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.cardboard.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}
