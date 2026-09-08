@@ -80,6 +80,19 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
+      # Replicated's image proxy pulls this image from GHCR to build the
+      # airgap bundle and to serve non-airgap installs. The package must be
+      # public for the proxy to access it without registry credentials.
+      - name: Make GHCR package public
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api \
+            --method PATCH \
+            -H "Accept: application/vnd.github+json" \
+            "/users/${{ github.repository_owner }}/packages/container/${{ github.event.repository.name }}" \
+            -f visibility=public
+
       - name: Sign image with cosign
         run: cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
 
