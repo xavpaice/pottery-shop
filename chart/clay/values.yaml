@@ -115,14 +115,6 @@ postgres:
     # and reference it via an ExternalSecret or sealed-secret instead.
     dsn: ""
 
-# -- Image used by the wait-for-postgres init-container (managed mode only).
-# Pin to a specific patch version to avoid mutable-tag supply-chain risk.
-waitForPostgres:
-  image:
-    registry: proxy.clay.nz/proxy/xav-pottery-shop/index.docker.io
-    repository: library/postgres
-    tag: 16.3-alpine3.20
-
 # -- Image used by webhook-wait Jobs to poll operator readiness.
 webhookWait:
   image:

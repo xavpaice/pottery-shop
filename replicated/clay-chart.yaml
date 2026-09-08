@@ -48,9 +48,6 @@ spec:
     clay:
       image:
         registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.clay.image.registry") }}'
-    waitForPostgres:
-      image:
-        registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.waitForPostgres.image.registry") }}'
     webhookWait:
       image:
         registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".Values.webhookWait.image.registry") }}'
