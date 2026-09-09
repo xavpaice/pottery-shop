@@ -27,7 +27,7 @@ spec:
       {{- if include "clay.isTrue" .Values.postgres.managed }}
       initContainers:
         - name: wait-for-postgres
-          image: {{ .Values.waitForPostgres.image.registry }}/{{ .Values.waitForPostgres.image.repository }}:{{ .Values.waitForPostgres.image.tag }}
+          image: {{ .Values.postgres.cluster.imageName }}
           command:
             - sh
             - -c
