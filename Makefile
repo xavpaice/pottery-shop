@@ -1,4 +1,14 @@
-.PHONY: build test test-verbose clean run run-local run-stop docker helm-lint lint integration-test release cmx-test cmx-test-teardown ec-test ec-test-teardown build-cardboard docker-cardboard run-cardboard
+.PHONY: build test test-verbose clean run run-local run-stop docker helm-lint lint integration-test release cmx-test cmx-test-teardown ec-test ec-test-teardown build-cardboard docker-cardboard run-cardboard ghcr-login
+
+# Load local environment variables (secrets, tokens) from .env if present.
+# .env is gitignored and never committed.
+ifneq (,$(wildcard .env))
+  include .env
+  export
+endif
+
+GHCR_USERNAME ?= xavpaice
+GHCR_TOKEN    ?= $(GITHUB_TOKEN)
 
 BINARY := pottery-server
 CARDBOARD_BINARY := cardboard-server
@@ -117,8 +127,13 @@ deploy:
 	@echo "Raw Kubernetes manifests are not included. Use 'helm upgrade --install clay ./chart/clay -n clay' instead."
 	@exit 1
 
+## ghcr-login: log in to GitHub Container Registry using GHCR_TOKEN or GITHUB_TOKEN
+ghcr-login:
+	@test -n "$$GHCR_TOKEN" || { echo "Error: GHCR_TOKEN or GITHUB_TOKEN not set. Add it to .env or export it."; exit 1; }
+	@echo "$$GHCR_TOKEN" | docker login ghcr.io -u $(GHCR_USERNAME) --password-stdin
+
 ## release: build image, package chart, and create a dev Replicated release on Unstable
-release:
+release: ghcr-login
 	@for tool in replicated docker helm; do \
 		command -v $$tool >/dev/null 2>&1 || { echo "Error: $$tool not found"; exit 1; }; \
 	done
@@ -156,13 +171,12 @@ release:
 		echo "Release $$VERSION created for $$APP_SLUG on Unstable"; \
 	'
 
-GHCR_USERNAME ?= xavpaice
 IMAGE_REPO := ghcr.io/xavpaice/pottery-shop
 IMAGE_TAG := test-$(shell git rev-parse --short HEAD)
 CLUSTER_NAME := pottery-integration-$(shell date +%s)
 
 ## integration-test: build image, create CMX cluster, install chart, verify, teardown
-integration-test:
+integration-test: ghcr-login
 	@for tool in replicated docker helm kubectl jq; do \
 		if ! command -v $$tool >/dev/null 2>&1; then \
 			if [ "$$tool" = "replicated" ]; then \
@@ -254,7 +268,7 @@ EC_STATE    := /tmp/pottery-ec-state
 EC_KEY      := /tmp/pottery-ec-key
 
 ## cmx-test: mirror CI integration-test -- build release, install via Replicated on CMX, verify (no teardown)
-cmx-test:
+cmx-test: ghcr-login
 	@for tool in replicated docker helm kubectl jq; do \
 		command -v $$tool >/dev/null 2>&1 || { echo "Error: $$tool not found"; exit 1; }; \
 	done
@@ -401,7 +415,7 @@ cmx-test-teardown:
 	'
 
 ## ec-test: mirror CI ec-integration-test -- install EC on CMX VM, verify (no teardown)
-ec-test:
+ec-test: ghcr-login
 	@for tool in replicated docker helm jq ssh scp; do \
 		command -v $$tool >/dev/null 2>&1 || { echo "Error: $$tool not found"; exit 1; }; \
 	done
