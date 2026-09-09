@@ -1,4 +1,9 @@
 {{- if include "clay.isTrue" .Values.postgres.managed }}
+{{/* Only render the Cluster CR when the CNPG API is available OR when
+     cloudnative-pg is bundled as a subchart (in which case the chart's own
+     CRDs are present). This prevents helm template --dry-run=server from
+     failing in EC v3 when the operator is installed via a separate chart. */}}
+{{- if or (include "clay.cnpgBundled" .) (.Capabilities.APIVersions.Has "postgresql.cnpg.io/v1") }}
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
@@ -20,4 +25,5 @@ spec:
     {{- if .Values.postgres.cluster.storage.storageClass }}
     storageClassName: {{ .Values.postgres.cluster.storage.storageClass | quote }}
     {{- end }}
+{{- end }}
 {{- end }}
