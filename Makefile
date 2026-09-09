@@ -1,4 +1,14 @@
-.PHONY: build test test-verbose clean run run-local run-stop docker helm-lint lint integration-test cmx-test cmx-test-teardown ec-test ec-test-teardown build-cardboard docker-cardboard run-cardboard
+.PHONY: build test test-verbose clean run run-local run-stop docker helm-lint lint integration-test release cmx-test cmx-test-teardown ec-test ec-test-teardown build-cardboard docker-cardboard run-cardboard ghcr-login
+
+# Load local environment variables (secrets, tokens) from .env if present.
+# .env is gitignored and never committed.
+ifneq (,$(wildcard .env))
+  include .env
+  export
+endif
+
+GHCR_USERNAME ?= xavpaice
+GHCR_TOKEN    ?= $(GITHUB_TOKEN)
 
 BINARY := pottery-server
 CARDBOARD_BINARY := cardboard-server
@@ -117,13 +127,56 @@ deploy:
 	@echo "Raw Kubernetes manifests are not included. Use 'helm upgrade --install clay ./chart/clay -n clay' instead."
 	@exit 1
 
-GHCR_USERNAME ?= xavpaice
+## ghcr-login: log in to GitHub Container Registry using GHCR_TOKEN or GITHUB_TOKEN
+ghcr-login:
+	@test -n "$$GHCR_TOKEN" || { echo "Error: GHCR_TOKEN or GITHUB_TOKEN not set. Add it to .env or export it."; exit 1; }
+	@echo "$$GHCR_TOKEN" | docker login ghcr.io -u $(GHCR_USERNAME) --password-stdin
+
+## release: build image, package chart, and create a dev Replicated release on Unstable
+release: ghcr-login
+	@for tool in replicated docker helm; do \
+		command -v $$tool >/dev/null 2>&1 || { echo "Error: $$tool not found"; exit 1; }; \
+	done
+	@test -n "$$REPLICATED_API_TOKEN" || { echo "Error: REPLICATED_API_TOKEN not set"; exit 1; }
+	@VERSION=$(CMX_VERSION) \
+	APP_SLUG=$(APP_SLUG) \
+	IMAGE_REPO=$(IMAGE_REPO) \
+	bash -ec ' \
+		trap '\''git checkout replicated/clay-chart.yaml 2>/dev/null || true'\'' EXIT; \
+		\
+		echo "--- Building and pushing image $$IMAGE_REPO:$$VERSION ---"; \
+		docker buildx build --platform linux/amd64 \
+			-t $$IMAGE_REPO:$$VERSION --push .; \
+		\
+		echo "--- Packaging chart ---"; \
+		helm dependency update chart/clay/; \
+		rm -f replicated/*.tgz; \
+		helm package chart/clay/ -d replicated \
+			--version $$VERSION --app-version $$VERSION; \
+		cp chart/clay/charts/cloudnative-pg-*.tgz replicated/; \
+		cp chart/clay/charts/cert-manager-*.tgz replicated/; \
+		\
+		echo "--- Updating HelmChart CR version ---"; \
+		sed "s/chartVersion: .*/chartVersion: $$VERSION/" replicated/clay-chart.yaml \
+			> /tmp/clay-chart-$$VERSION.yaml; \
+		cp /tmp/clay-chart-$$VERSION.yaml replicated/clay-chart.yaml; \
+		\
+		echo "--- Creating Replicated release on Unstable ---"; \
+		replicated release create \
+			--app $$APP_SLUG \
+			--yaml-dir ./replicated \
+			--promote Unstable \
+			--version $$VERSION; \
+		\
+		echo "Release $$VERSION created for $$APP_SLUG on Unstable"; \
+	'
+
 IMAGE_REPO := ghcr.io/xavpaice/pottery-shop
 IMAGE_TAG := test-$(shell git rev-parse --short HEAD)
 CLUSTER_NAME := pottery-integration-$(shell date +%s)
 
 ## integration-test: build image, create CMX cluster, install chart, verify, teardown
-integration-test:
+integration-test: ghcr-login
 	@for tool in replicated docker helm kubectl jq; do \
 		if ! command -v $$tool >/dev/null 2>&1; then \
 			if [ "$$tool" = "replicated" ]; then \
@@ -215,7 +268,7 @@ EC_STATE    := /tmp/pottery-ec-state
 EC_KEY      := /tmp/pottery-ec-key
 
 ## cmx-test: mirror CI integration-test -- build release, install via Replicated on CMX, verify (no teardown)
-cmx-test:
+cmx-test: ghcr-login
 	@for tool in replicated docker helm kubectl jq; do \
 		command -v $$tool >/dev/null 2>&1 || { echo "Error: $$tool not found"; exit 1; }; \
 	done
@@ -362,7 +415,7 @@ cmx-test-teardown:
 	'
 
 ## ec-test: mirror CI ec-integration-test -- install EC on CMX VM, verify (no teardown)
-ec-test:
+ec-test: ghcr-login
 	@for tool in replicated docker helm jq ssh scp; do \
 		command -v $$tool >/dev/null 2>&1 || { echo "Error: $$tool not found"; exit 1; }; \
 	done
