@@ -3,13 +3,16 @@ name: dependency-update-potteryshop
 enabled: true
 manual_trigger: true
 
-initial_state: manual_trigger
+initial_state: prepare
+
+trigger:
+  cron:
+    schedule: "0 9 * * 1"        # Mondays at 09:00 UTC
+    timezone: "UTC"
+    overlap_policy: skip         # skip if a previous run is still active
+    timeout: "2h"                # enforced by the hub reaper if the run stalls
 
 states:
-  manual_trigger:
-    description: Waiting for a manual start.
-    phase: setup
-
   prepare:
     description: Prepare the dependency-update branch.
     phase: build
@@ -21,25 +24,9 @@ states:
             timeout: 10m
 
   prepare_failed:
-    description: Branch preparation failed.
+    description: Branch preparation failed. Inspect the `exec.last_run` facts (stdout, stderr, error) for the reason, then trigger the workflow manually once it is resolved.
     phase: done
     terminal: true
-    on_enter:
-      effects:
-        - agent.task:
-            prompt: |
-              Branch preparation failed.
-
-              Inspect the `exec.last_run` facts (stdout, stderr, error) for the reason.
-              Expected branch: deps/dependency-update-go
-              Base branch: main
-              Repo: xavpaice/pottery-shop
-
-              Please investigate the failure and trigger the workflow manually once it is resolved.
-            include_facts:
-              - exec.last_run.stdout
-              - exec.last_run.stderr
-              - exec.last_run.error
 
   update_deps:
     description: Update Go dependencies.
@@ -62,20 +49,9 @@ states:
             timeout: 15m
 
   no_changes:
-    description: No dependency changes were detected.
+    description: No dependency changes were detected. No further action is needed.
     phase: done
     terminal: true
-    on_enter:
-      effects:
-        - agent.task:
-            prompt: |
-              No dependency changes were detected on the expected branch.
-
-              The dependency updater ran successfully, but all Go modules are already up to date. This is a normal outcome. No further action is needed.
-            include_facts:
-              - exec.dependency_update.ecosystems
-              - exec.dependency_update.manifests
-              - exec.dependency_update.files_changed
 
   validate:
     description: Validate updated dependencies.
@@ -189,22 +165,11 @@ states:
               When CI is passing and reviews are clean, run the `mark_ready_to_merge` command.
 
   ready_to_merge:
-    description: CI is green and reviews are clean.
+    description: CI is green and reviews are clean. The PR is ready to merge; no further workflow action is needed.
     phase: review
     terminal: true
-    on_enter:
-      effects:
-        - agent.task:
-            prompt: |
-              CI is green and reviews are clean. The PR is ready to merge.
-
-              No further action is needed from this workflow. Do not push any more changes.
 
 commands:
-  start:
-    from: manual_trigger
-    to: prepare
-
   retry_validation:
     from: fix_validation
     to: validate
