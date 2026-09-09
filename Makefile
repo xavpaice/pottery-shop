@@ -1,4 +1,4 @@
-.PHONY: build test test-verbose clean run run-local run-stop docker helm-lint lint integration-test cmx-test cmx-test-teardown ec-test ec-test-teardown build-cardboard docker-cardboard run-cardboard
+.PHONY: build test test-verbose clean run run-local run-stop docker helm-lint lint integration-test release cmx-test cmx-test-teardown ec-test ec-test-teardown build-cardboard docker-cardboard run-cardboard
 
 BINARY := pottery-server
 CARDBOARD_BINARY := cardboard-server
@@ -116,6 +116,45 @@ docker:
 deploy:
 	@echo "Raw Kubernetes manifests are not included. Use 'helm upgrade --install clay ./chart/clay -n clay' instead."
 	@exit 1
+
+## release: build image, package chart, and create a dev Replicated release on Unstable
+release:
+	@for tool in replicated docker helm; do \
+		command -v $$tool >/dev/null 2>&1 || { echo "Error: $$tool not found"; exit 1; }; \
+	done
+	@test -n "$$REPLICATED_API_TOKEN" || { echo "Error: REPLICATED_API_TOKEN not set"; exit 1; }
+	@VERSION=$(CMX_VERSION) \
+	APP_SLUG=$(APP_SLUG) \
+	IMAGE_REPO=$(IMAGE_REPO) \
+	bash -ec ' \
+		trap '\''git checkout replicated/clay-chart.yaml 2>/dev/null || true'\'' EXIT; \
+		\
+		echo "--- Building and pushing image $$IMAGE_REPO:$$VERSION ---"; \
+		docker buildx build --platform linux/amd64 \
+			-t $$IMAGE_REPO:$$VERSION --push .; \
+		\
+		echo "--- Packaging chart ---"; \
+		helm dependency update chart/clay/; \
+		rm -f replicated/*.tgz; \
+		helm package chart/clay/ -d replicated \
+			--version $$VERSION --app-version $$VERSION; \
+		cp chart/clay/charts/cloudnative-pg-*.tgz replicated/; \
+		cp chart/clay/charts/cert-manager-*.tgz replicated/; \
+		\
+		echo "--- Updating HelmChart CR version ---"; \
+		sed "s/chartVersion: .*/chartVersion: $$VERSION/" replicated/clay-chart.yaml \
+			> /tmp/clay-chart-$$VERSION.yaml; \
+		cp /tmp/clay-chart-$$VERSION.yaml replicated/clay-chart.yaml; \
+		\
+		echo "--- Creating Replicated release on Unstable ---"; \
+		replicated release create \
+			--app $$APP_SLUG \
+			--yaml-dir ./replicated \
+			--promote Unstable \
+			--version $$VERSION; \
+		\
+		echo "Release $$VERSION created for $$APP_SLUG on Unstable"; \
+	'
 
 GHCR_USERNAME ?= xavpaice
 IMAGE_REPO := ghcr.io/xavpaice/pottery-shop
